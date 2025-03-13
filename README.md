@@ -1,6 +1,6 @@
 # The Rogue Ace
 
-It’s like Uno but ... 
+It’s like Uno but... 
 
 Everyone draws 8 cards. If you start with two aces, keep one of them and throw the other one in the deck, draw a card and shuffle the deck until you have only one ace. The goal is to run out of cards. After drawing cards they pick a ruler and show that card face-up. The ruler has two abilities, suit abilities and card abilities, unless it is an ace or joker. Whenever I say “you cannot make a pair with this”, I mean you cannot use the ability to make a pair, three of a kind or four of a kind.  
 
@@ -58,4 +58,4 @@ If you need to draw cards and there are no more cards in the deck OR discard pil
 ---
 
 ### Game elements:
-Play on floors like [pokerogue.net](http://pokerogue.net), but after you fight you can take their abilities (each enemy has a unique ability that makes them better) and then use them the next time you play. Let’s implement this later though. First implement basic functionality with a title screen and a start button in the middle of the screen. It’s called **“The Rogue Ace.”** No complaints.
+Play on floors like [pokerogue.net](http://pokerogue.net), but after you fight you can take their abilities (each enemy has a unique ability that makes them better) and then use them the next time you play. It’s called **“The Rogue Ace.”** No complaints.
