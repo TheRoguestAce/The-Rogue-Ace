@@ -5,12 +5,14 @@ It’s like Uno but
 Everyone draws 8 cards. If you start with two aces, keep one of them and throw the other one in the deck, draw a card and shuffle the deck until you have only one ace. The goal is to run out of cards. After drawing cards they pick a ruler and show that card face-up. The ruler has two abilities, suit abilities and card abilities, unless it is an ace or joker. Whenever I say “you cannot make a pair with this”, I mean you cannot use the ability to make a pair, three of a kind or four of a kind.  
 
 ### Suit Abilities:
+
 - **Diamonds (Diamond Storm):** If you can play a diamond card, you can add another card to play with it. This does not count as a pair.  
 - **Hearts (Campfire):** Every other card also count as the number on the heart card which is the ruler. Subsequent cards can also follow that number. You cannot make pairs with this ability.  
 - **Spades (Sliced):** All spades you play can also count as the number that is half of it, rounding up. (face cards count as 10 and are sliced to 5). You can make pairs with this.  
 - **Clubs (Strike):** You can play two cards at once if you have 5 or more cards and they both are playable cards. This counts as a pair.  
 
 ### Card Abilities:
+
 - **2 (Twice the Might):** Two of a kind has double the effect.  
 - **3 (Lucky Clover):** You can play a 7 whenever you want, and everyone else has to draw 2 cards.  
 - **4 (Fourfold):** When you play a four of a kind, everyone puts all of their cards in the deck and shuffles them. Everyone else then draws 7 new cards while you draw 3.  
@@ -25,6 +27,7 @@ Everyone draws 8 cards. If you start with two aces, keep one of them and throw t
 - **K (Ruler of Rulers):** Take the abilities of every other ruler’s card ability, but when you win you draw 5 cards and have to win again.  
 
 ### Ace Abilities:
+
 - **Ace of Diamonds (The Perfect Card):** All odd numbered non-face card cards can be played at any time. Same rules as Perfection. You cannot make a pair with this.  
 - **Ace of Hearts (Otherworldly Touch):** All hearts count as every other number and suit. All other suits can also count as this card, but do not get to count as every other number and suit. You cannot make a pair with this.  
 - **Ace of Spades (Pocket Knife):** All cards also count as the card that is half their value, rounded down. (face cards count as 10 and are sliced to 5). You can make a pair with this.  
@@ -38,6 +41,7 @@ After picking rulers, pick who is going first and drop the first card in the dec
 There are also some special combinations of cards that allow you to play multiple at once, with some special abilities. Here they are.  
 
 ### Combinations:
+
 - **Pair:** Everyone else draws 2 cards.  
 - **Three of a kind:** Everyone else draws 3 cards.  
 - **Four of a kind:** Everyone else draws 4 cards.  
