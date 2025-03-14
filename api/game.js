@@ -17,7 +17,8 @@ export default async function handler(req, res) {
     ],
     turn: 0,
     phase: 'setup',
-    status: 'Pick your ruler!'
+    status: 'Pick your ruler!',
+    moveHistory: [] // Track last two moves
   };
 
   function shuffle(array) {
@@ -49,7 +50,6 @@ export default async function handler(req, res) {
       return map[r] || parseInt(r);
     };
 
-    // Single card
     if (cards.length === 1) {
       const card = cards[0];
       const isRed = s => ['Diamonds', 'Hearts'].includes(s);
@@ -58,17 +58,15 @@ export default async function handler(req, res) {
       return isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value % 2 === topValue % 2;
     }
 
-    // Pair, Three of a Kind, Four of a Kind
     if (cards.length >= 2 && cards.length <= 4) {
       const allSameRank = cards.every(c => c.rank === cards[0].rank);
       return allSameRank;
     }
 
-    // Straight or Flush (5 cards)
     if (cards.length === 5) {
       const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
       const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || 
-                        (values.join(',') === '1,10,11,12,13'); // A-10-J-Q-K
+                        (values.join(',') === '1,10,11,12,13');
       const isFlush = cards.every(c => c.suit === cards[0].suit);
       return isStraight || isFlush;
     }
@@ -94,7 +92,8 @@ export default async function handler(req, res) {
         ],
         turn: 0,
         phase: 'setup',
-        status: 'Pick your ruler!'
+        status: 'Pick your ruler!',
+        moveHistory: []
       };
     } else if (move === 'draw') {
       game.players[0].hand.push(...game.deck.splice(0, 2));
@@ -123,6 +122,7 @@ export default async function handler(req, res) {
             game.discard = game.deck.shift();
             game.phase = 'play';
             game.status = 'Play a card!';
+            game.moveHistory = [`You set ruler ${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}`];
           }
         }
       } else if (game.phase === 'play') {
@@ -131,8 +131,10 @@ export default async function handler(req, res) {
           game.status = 'Invalid play!';
         } else {
           indices.sort((a, b) => b - a).forEach(i => game.players[0].hand.splice(i, 1));
-          game.discard = cards[0]; // First card as discard
-          game.status = `Played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}. AI\'s turn!`;
+          game.discard = cards[0];
+          game.status = 'AI\'s turn!';
+          game.moveHistory.unshift(`You played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
+          if (game.moveHistory.length > 2) game.moveHistory.pop();
           game.turn = 1;
           aiMove();
         }
@@ -154,10 +156,14 @@ export default async function handler(req, res) {
     const idx = ai.hand.findIndex(c => isValidPlay([c], game.discard));
     if (idx !== -1) {
       game.discard = ai.hand.splice(idx, 1)[0];
-      game.status = `AI played ${game.discard.rank}${game.discard.suit[0]}. Your turn!`;
+      game.status = 'Your turn!';
+      game.moveHistory.unshift(`AI played ${game.discard.rank}${game.discard.suit[0]}`);
+      if (game.moveHistory.length > 2) game.moveHistory.pop();
     } else {
       ai.hand.push(...game.deck.splice(0, 2));
       game.status = 'AI drew 2. Your turn!';
+      game.moveHistory.unshift('AI drew 2');
+      if (game.moveHistory.length > 2) game.moveHistory.pop();
     }
     game.turn = 0;
 
@@ -170,13 +176,14 @@ export default async function handler(req, res) {
   gameStates[sessionId] = game;
 
   res.status(200).json({
-    discard: game.discard || { rank: 'None', suit: 'None' },
+    discard: game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None',
     playerHand: game.players[0].hand,
     aiHandSize: game.players[1].hand.length,
-    playerRuler: game.players[0].ruler || { rank: 'None', suit: 'None' },
-    aiRuler: game.players[1].ruler || { rank: 'None', suit: 'None' },
+    playerRuler: game.players[0].ruler ? `${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}` : 'None',
+    aiRuler: game.players[1].ruler ? `${game.players[1].ruler.rank}${game.players[1].ruler.suit[0]}` : 'None',
     status: game.status,
     phase: game.phase,
-    session: sessionId
+    session: sessionId,
+    moveHistory: game.moveHistory
   });
 }
