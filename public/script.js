@@ -54,25 +54,27 @@ function updateDisplay(data) {
   document.getElementById('ai-ruler').textContent = data.aiRuler || 'None';
   document.getElementById('status').textContent = data.status || 'Error';
   document.getElementById('move-history').textContent = (data.moveHistory || []).join(' | ') || 'None';
+  document.getElementById('draw-button').style.display = data.canPlay ? 'none' : 'inline';
   console.log('Hand size:', data.playerHand.length);
   if (data.phase === 'over') alert(data.status);
 }
 
 function toggleCard(card) {
-  const index = selectedCards.indexOf(card);
-  if (index === -1) {
-    selectedCards.push(card);
-    if (data.phase === 'setup') {
-      const [rank, suitChar] = [card.slice(0, -1), card.slice(-1)];
-      const suit = Object.keys(rulerAbilities.suits).find(s => s[0] === suitChar);
-      const abilityKey = rank === 'A' ? `A-${suit}` : rank;
-      const suitAbility = rank === 'A' ? '' : `Suit: ${rulerAbilities.suits[suit]} | `;
-      document.getElementById('ruler-abilities').style.display = 'block';
-      document.getElementById('ruler-abilities').textContent = `${suitAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
-    }
+  if (data.phase === 'setup') {
+    selectedCards = [card]; // Replace selection
+    const [rank, suitChar] = [card.slice(0, -1), card.slice(-1)];
+    const suit = Object.keys(rulerAbilities.suits).find(s => s[0] === suitChar);
+    const abilityKey = rank === 'A' ? `A-${suit}` : rank;
+    const suitAbility = rank === 'A' ? '' : `Suit: ${rulerAbilities.suits[suit]} | `;
+    document.getElementById('ruler-abilities').style.display = 'block';
+    document.getElementById('ruler-abilities').textContent = `${suitAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
   } else {
-    selectedCards.splice(index, 1);
-    document.getElementById('ruler-abilities').style.display = 'none';
+    const index = selectedCards.indexOf(card);
+    if (index === -1) {
+      selectedCards.push(card);
+    } else {
+      selectedCards.splice(index, 1);
+    }
   }
   fetchGame();
 }
@@ -99,11 +101,13 @@ function playSelected() {
 
 function drawCards() {
   selectedCards = [];
+  document.getElementById('ruler-abilities').style.display = 'none';
   fetchGame('draw');
 }
 
 function resetGame() {
   selectedCards = [];
+  document.getElementById('ruler-abilities').style.display = 'none';
   fetchGame('', true);
 }
 
