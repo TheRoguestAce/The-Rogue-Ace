@@ -23,7 +23,8 @@ export default async function handler(req, res) {
       phase: 'setup',
       status: 'Pick your ruler!',
       moveHistory: [],
-      lastPlayCount: 1
+      lastPlayCount: 1,
+      lastPlayType: 'single' // Track play type for AI draw reason
     };
     gameStates[sessionId] = game;
   }
@@ -53,6 +54,7 @@ export default async function handler(req, res) {
     if (game.phase === 'play' && !top) return false;
 
     const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
+    const isEven = r => rankValue(r) % 2 === 0;
 
     if (cards.length === 1) {
       const card = cards[0];
@@ -63,13 +65,22 @@ export default async function handler(req, res) {
     }
 
     if (cards.length >= 2 && cards.length <= 4) {
-      return cards.every(c => c.rank === cards[0].rank);
+      return cards.every(c => c.rank === cards[0].rank); // Same rank only
     }
 
-    if (cards.length >= 4) {
+    if (cards.length === 5) {
       const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
       const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || 
-                        (cards.length === 5 && values.join(',') === '1,10,11,12,13');
+                        (values.join(',') === '1,10,11,12,13');
+      const isFlush = cards.every(c => c.suit === cards[0].suit);
+      const allEven = cards.every(c => isEven(c.rank));
+      const allOdd = cards.every(c => !isEven(c.rank));
+      return isStraight || isFlush || allEven || allOdd;
+    }
+
+    if (cards.length > 5) {
+      const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
+      const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1);
       const isFlush = cards.every(c => c.suit === cards[0].suit);
       return isStraight || isFlush;
     }
@@ -101,7 +112,8 @@ export default async function handler(req, res) {
         phase: 'setup',
         status: 'Pick your ruler!',
         moveHistory: [],
-        lastPlayCount: 1
+        lastPlayCount: 1,
+        lastPlayType: 'single'
       };
     } else if (move === 'draw') {
       game.players[0].hand.push(...game.deck.splice(0, 2));
@@ -132,6 +144,7 @@ export default async function handler(req, res) {
             game.status = 'Play a card!';
             game.moveHistory = [`You set ruler ${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}`];
             game.lastPlayCount = 1;
+            game.lastPlayType = 'single';
           }
         }
       } else if (game.phase === 'play') {
@@ -142,9 +155,23 @@ export default async function handler(req, res) {
           indices.sort((a, b) => b - a).forEach(i => game.players[0].hand.splice(i, 1));
           game.discard = cards[0];
           game.status = 'AI\'s turn!';
-          game.moveHistory.unshift(`You played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
+          const playDesc = `You played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`;
+          game.moveHistory.unshift(playDesc);
           if (game.moveHistory.length > 2) game.moveHistory.pop();
           game.lastPlayCount = cards.length;
+
+          // Determine play type
+          const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
+          const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
+          const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || 
+                            (cards.length === 5 && values.join(',') === '1,10,11,12,13');
+          const isFlush = cards.every(c => c.suit === cards[0].suit);
+          const allEven = cards.every(c => rankValue(c.rank) % 2 === 0);
+          const allOdd = cards.every(c => rankValue(c.rank) % 2 !== 0);
+          game.lastPlayType = cards.length === 1 ? 'single' :
+                             (cards.length <= 4 ? `${cards.length} of a kind` :
+                             (isStraight ? 'straight' : isFlush ? 'flush' : allEven ? 'even only' : 'odd only'));
+
           game.turn = 1;
           aiMove();
         }
@@ -163,14 +190,16 @@ export default async function handler(req, res) {
 
   function aiMove() {
     const ai = game.players[1];
-    console.log(`AI turn - Last play count: ${game.lastPlayCount}, AI hand size: ${ai.hand.length}`);
+    console.log(`AI turn - Last play: ${game.lastPlayCount} (${game.lastPlayType}), AI hand size: ${ai.hand.length}`);
 
-    // Draw based on player's last play count
+    // Draw based on player's last play
     if (game.lastPlayCount > 1 && game.deck.length > 0) {
-      const drawCount = game.lastPlayCount <= 4 ? game.lastPlayCount : Math.max(0, game.lastPlayCount - 2);
+      const drawCount = game.lastPlayType === 'even only' || game.lastPlayType === 'odd only' ? 
+                       Math.max(0, game.lastPlayCount - 3) : 
+                       (game.lastPlayCount > 4 ? Math.max(0, game.lastPlayCount - 2) : game.lastPlayCount);
       const actualDraw = Math.min(drawCount, game.deck.length);
       game.players[1].hand.push(...game.deck.splice(0, actualDraw));
-      game.moveHistory.unshift(`AI drew ${actualDraw}`);
+      game.moveHistory.unshift(`AI drew ${actualDraw} (caused by ${game.lastPlayType})`);
       if (game.moveHistory.length > 2) game.moveHistory.pop();
       console.log(`AI drew ${actualDraw}, new hand:`, ai.hand);
     }
@@ -183,6 +212,7 @@ export default async function handler(req, res) {
       game.moveHistory.unshift(`AI played ${game.discard.rank}${game.discard.suit[0]}`);
       if (game.moveHistory.length > 2) game.moveHistory.pop();
       game.lastPlayCount = 1;
+      game.lastPlayType = 'single';
     } else if (game.deck.length > 0) {
       game.players[1].hand.push(...game.deck.splice(0, 2));
       game.status = 'AI drew 2. Your turn!';
