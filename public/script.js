@@ -21,6 +21,9 @@ function updateDisplay(data) {
   document.getElementById('ai-ruler').textContent = `${data.aiRuler.rank}${data.aiRuler.suit[0]}`;
   document.getElementById('status').textContent = data.status;
   console.log('Hand size:', data.playerHand.length);
+  if (data.phase === 'over') {
+    alert(data.status);
+  }
 }
 
 function toggleCard(card) {
@@ -30,13 +33,13 @@ function toggleCard(card) {
   } else {
     selectedCards.splice(index, 1);
   }
-  fetchGame(); // Refresh display to show selection
+  fetchGame(); // Refresh to show selection
 }
 
 function playSelected() {
   if (selectedCards.length === 0) return;
   const move = selectedCards.join(',');
-  selectedCards = []; // Clear selection
+  selectedCards = [];
   fetchGame(move);
 }
 
@@ -50,5 +53,4 @@ function resetGame() {
   fetchGame('', true);
 }
 
-// Start
 fetchGame();
