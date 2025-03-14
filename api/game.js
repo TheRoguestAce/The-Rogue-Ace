@@ -66,10 +66,10 @@ export default async function handler(req, res) {
       return cards.every(c => c.rank === cards[0].rank);
     }
 
-    if (cards.length === 5) {
+    if (cards.length >= 4) {
       const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
       const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || 
-                        (values.join(',') === '1,10,11,12,13');
+                        (cards.length === 5 && values.join(',') === '1,10,11,12,13');
       const isFlush = cards.every(c => c.suit === cards[0].suit);
       return isStraight || isFlush;
     }
@@ -167,11 +167,12 @@ export default async function handler(req, res) {
 
     // Draw based on player's last play count
     if (game.lastPlayCount > 1 && game.deck.length > 0) {
-      const drawCount = Math.min(game.lastPlayCount, game.deck.length);
-      game.players[1].hand.push(...game.deck.splice(0, drawCount));
-      game.moveHistory.unshift(`AI drew ${drawCount}`);
+      const drawCount = game.lastPlayCount <= 4 ? game.lastPlayCount : Math.max(0, game.lastPlayCount - 2);
+      const actualDraw = Math.min(drawCount, game.deck.length);
+      game.players[1].hand.push(...game.deck.splice(0, actualDraw));
+      game.moveHistory.unshift(`AI drew ${actualDraw}`);
       if (game.moveHistory.length > 2) game.moveHistory.pop();
-      console.log(`AI drew ${drawCount}, new hand:`, ai.hand);
+      console.log(`AI drew ${actualDraw}, new hand:`, ai.hand);
     }
 
     // Then try to play a single card
