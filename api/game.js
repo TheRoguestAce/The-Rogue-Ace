@@ -69,7 +69,7 @@ async function handler(req, res) {
       if (rulerRank === '7' && cards.length === 1 && cards[0].rank === '3') return true;
       if (rulerRank === '10' && cards.every(c => isEven(c.rank))) return true;
       if (cards.length >= 2 && cards.length <= 4 && cards.every(c => c.rank === cards[0].rank)) return true;
-      if (rulerRank === 'K') { // Inherit opponent's empty pile abilities
+      if (rulerRank === 'K') {
         if (opponentRank === 'A' && opponentSuit === 'Diamonds' && cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0)) return true;
         if (opponentRank === '3' && cards.length === 1 && cards[0].rank === '7') return true;
         if (opponentRank === '7' && cards.length === 1 && cards[0].rank === '3') return true;
@@ -88,7 +88,7 @@ async function handler(req, res) {
       let matches = isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value % 2 === topValue % 2;
 
       if (rulerRank === 'A' && rulerSuit === 'Diamonds' && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) matches = true;
-      if (rulerRank === 'A' && rulerSuit === 'Hearts' && card.suit === 'Hearts') matches = true;
+      if ((rulerRank === 'A' && rulerSuit === 'Hearts') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Hearts') && card.suit === 'Hearts') matches = true;
       if (rulerRank === 'A' && rulerSuit === 'Spades') matches = Math.floor(value / 2) === topValue;
       if (rulerRank === 'A' && rulerSuit === 'Clubs') matches = Math.floor(value / 2) === topValue;
       if (rulerRank === '5' && ['J', 'Q', 'K'].includes(card.rank)) matches = topValue === 5;
@@ -97,7 +97,7 @@ async function handler(req, res) {
       if (rulerRank === 'Q' && card.rank === 'K') matches = true;
       if (rulerSuit === 'Hearts' && rulerRank !== 'A') matches = value === rankValue(rulerRank);
       if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue;
-      if (rulerRank === 'K') { // Inherit opponent's single-card abilities
+      if (rulerRank === 'K') {
         if (opponentRank === 'A' && opponentSuit === 'Diamonds' && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) matches = true;
         if (opponentRank === 'A' && opponentSuit === 'Hearts' && card.suit === 'Hearts') matches = true;
         if (opponentRank === 'A' && opponentSuit === 'Spades') matches = Math.floor(value / 2) === topValue;
@@ -284,7 +284,7 @@ async function handler(req, res) {
             game.players[1].hand.push(...game.deck.splice(0, 1));
             game.moveHistory.unshift('The opponent drew 1 (Q ruler)');
           }
-          if (rulerRank === 'K') { // Inherit opponent's play effects
+          if (rulerRank === 'K') {
             if (opponentRank === '3' && cards[0].rank === '7') {
               game.players[1].hand.push(...game.deck.splice(0, 2));
               game.moveHistory.unshift('The opponent drew 2 (K inherits 3 ruler)');
