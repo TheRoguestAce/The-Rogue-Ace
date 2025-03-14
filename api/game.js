@@ -3,30 +3,30 @@ const gameStates = {};
 export default async function handler(req, res) {
   const { method, query } = req;
   const sessionId = query.session || 'default';
-  console.log(`Request: ${method} for session: ${sessionId}`);
+  console.log(`[${method}] Session: ${sessionId}`);
 
   const suits = ['Diamonds', 'Hearts', 'Spades', 'Clubs'];
   const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const deck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
 
-  // Initialize state if missing
-  if (!gameStates[sessionId]) {
-    console.log(`Initializing new state for session: ${sessionId}`);
-    gameStates[sessionId] = {
+  // Reset or fetch state
+  let game = gameStates[sessionId];
+  if (!game) {
+    console.log(`New session ${sessionId} - Initializing`);
+    game = {
       deck: shuffle([...deck]),
       discard: null,
       players: [
-        { hand: null, ruler: null }, // Use null to force check
-        { hand: null, ruler: null }
+        { hand: [], ruler: null },
+        { hand: [], ruler: null }
       ],
       turn: 0,
       phase: 'setup',
       status: 'Pick your ruler!',
       moveHistory: []
     };
+    gameStates[sessionId] = game;
   }
-  let game = gameStates[sessionId];
-  console.log(`Pre-deal state:`, JSON.stringify(game.players[0]));
 
   function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -52,10 +52,7 @@ export default async function handler(req, res) {
     if (cards.length === 0) return false;
     if (game.phase === 'play' && !top) return false;
 
-    const rankValue = r => {
-      const map = { A: 1, J: 11, Q: 12, K: 13 };
-      return map[r] || parseInt(r);
-    };
+    const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
 
     if (cards.length === 1) {
       const card = cards[0];
@@ -66,8 +63,7 @@ export default async function handler(req, res) {
     }
 
     if (cards.length >= 2 && cards.length <= 4) {
-      const allSameRank = cards.every(c => c.rank === cards[0].rank);
-      return allSameRank;
+      return cards.every(c => c.rank === cards[0].rank);
     }
 
     if (cards.length === 5) {
@@ -81,22 +77,20 @@ export default async function handler(req, res) {
     return false;
   }
 
-  // Ensure hands are dealt
-  if (!game.players[0].hand) {
-    console.log(`Dealing initial hands for session: ${sessionId}`);
-    game.players[0].hand = dealHand();
-    game.players[1].hand = dealHand();
-    console.log('Player hand after deal:', game.players[0].hand);
-  }
-
+  // Deal hands if empty
   if (method === 'GET') {
-    console.log(`GET response prep - Player hand:`, game.players[0].hand);
+    if (!game.players[0].hand || game.players[0].hand.length === 0) {
+      console.log(`Dealing hands for ${sessionId}`);
+      game.players[0].hand = dealHand();
+      game.players[1].hand = dealHand();
+      console.log(`Player hand:`, game.players[0].hand);
+    }
   }
 
   if (method === 'POST') {
     const { move, reset } = query;
     if (reset === 'true') {
-      console.log(`Resetting session: ${sessionId}`);
+      console.log(`Resetting ${sessionId}`);
       game = {
         deck: shuffle([...deck]),
         discard: null,
@@ -153,7 +147,7 @@ export default async function handler(req, res) {
           aiMove();
         }
       }
-      console.log('After move:', game.players[0].hand);
+      console.log('Post-move hand:', game.players[0].hand);
     }
 
     if (game.players[0].hand.length === 0) {
@@ -191,7 +185,7 @@ export default async function handler(req, res) {
 
   const response = {
     discard: game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None',
-    playerHand: game.players[0].hand || [],
+    playerHand: game.players[0].hand,
     aiHandSize: game.players[1].hand.length,
     playerRuler: game.players[0].ruler ? `${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}` : 'None',
     aiRuler: game.players[1].ruler ? `${game.players[1].ruler.rank}${game.players[1].ruler.suit[0]}` : 'None',
@@ -200,6 +194,6 @@ export default async function handler(req, res) {
     session: sessionId,
     moveHistory: game.moveHistory
   };
-  console.log('Response:', JSON.stringify(response));
+  console.log('Sending response:', JSON.stringify(response));
   res.status(200).json(response);
 }
