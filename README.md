@@ -52,7 +52,53 @@ There are also some special combinations of cards that allow you to play multipl
 
 If you run out of cards and need to draw more, put the discard pile back into the deck and reshuffle. If a player cannot play any cards to match the card in the discard pile, they draw TWO cards.  
 
-If you need to draw cards and there are no more cards in the deck OR discard pile, then have everyone place down cards one by one starting from the person who was first to play and draw those cards until you have enough.  
+If you need to draw cards and there are no more cards in the deck OR discard pile, then have everyone place down cards one by one starting from the person who was first to play and draw those cards until you have enough. There are special things that happen when you play certain types of combos:
+
+### Pairs:
+- **A (Pocket Aces)**: Until you play again, everyone else has to play cards that are 10 or above.
+- **2 (Pair Pair)**: Instead of drawing 2 cards everyone else has to draw 3 cards.
+- **3 (Feeling Off)**: Until you play again, everyone else has to play odd numbers.
+- **4 (Half the Cards): Until you play again, everyone else cannot play cards 8 and above.
+- **5 (Medium Rare)**: Take one of your fives out of the discard pile after playing it, and then look through the discard pile and take one card from it. Then, put the rest of the cards into the deck and shuffle the deck. The five you took out of the pile will be the new discard pile.
+- **6 (Devilish Stare)**: Pick one person. They don’t play for their next turn.
+- **7 (Double Luck)**: Look at the next two cards in the deck. You can choose to replace one of your cards with one of those cards. Then, put the other cards on the top of the deck and shuffle the deck.
+- **8 (Good Fortune)**: Put any one of your other cards onto the top of the discard pile. The next player will have to follow that card.
+- **9 (Fort)**: Creates a “fort” in the discard pile. You can only destroy the fort by playing a pair. If you cannot destroy the fort, you have to draw a card. The fort automatically destroys itself when it becomes your turn unless you can play another pair. If the player that created the fort plays a pair or better on their next turn, the fort stays until destroyed or the next turn. The player that started the fort can keep up the fort as long as they have a pair or better. Other players that play a pair or better can also choose to keep the fort active instead of destroying it. You cannot play normal cards and you don’t draw two cards if you can’t play a card, only one if you don’t have a pair.
+- **10 (Feeling Right)**: Until you play again, everyone else has to play even numbers.
+- **J (High Card)**: Until you play again, everyone else has to play cards 8 and above.
+- **Q (Complaint)**: Everyone else draws a card while you put one of yours back in the deck and shuffle it.
+- **K (I am your Father)**: Until you play again, everyone else has to alternate between even and odd numbers. King and Jack count as odd numbers.
+
+### Three of a Kinds:
+
+- All Three of a Kinds start a fort. Same rules as the fort caused by playing a pair of nines, but instead to destroy it you must play a higher pair, but you can play a lower pair to avoid drawing cards (e.g. you play three of a kind tens so the fort created can only be destroyed by a pair of Jacks, Queens, Kings or Aces, but you can play a pair of 6s to avoid drawing two cards). Additionally, you have to draw 2 cards if you don’t have a pair. Three of a Kind Aces cause everyone else to draw five cards on top of the normal 3 cards (so 8 cards in total), and do not create a fort.
+
+Four of a Kinds:
+- **A. Pure Destruction**: Put 4 of your cards into the deck and shuffle it.
+- **2. Two’s Domain**: Until you play again, everyone else has to play even numbers that are the suit of the number on top of the discard pile. If they do not have that kind of card, they have to draw 3 cards instead of 2.
+- **3. Feeling More Off**: Until you play again, everyone else has to play odd numbers that are the suit of the number on top of the discard pile. If they do not have that kind of card, they have to draw 3 cards instead of 2.
+- **4. Four Fours**: Everyone has to draw 5 cards instead of 4.
+- **5. A Bit Above**: Until you play again, everyone else has to play numbers above 5 that are the suit of the number on top of the discard pile. If they do not have that kind of card, they have to draw 3 cards instead of 2.
+- **6. Satanic Bomb**: Discard all of your cards except one.
+- **7. Crazy Luck**: Look at all of the cards in the deck and trade any of your cards for any cards in the deck. After that put every card in the discard pile and the deck together, shuffle it and put the card on the top of the deck as the new discard pile.
+- **8. Crazy Fortune**: Same effects as Crazy Luck.
+- **9. Feeling Weird**: Until you play again, everyone else has to play perfect squares.
+- **10. Ultimate Perfection**: Same effects as Feeling Weird.
+- **J. Master Servant**: Until you play again, everyone has to play a queen or a king or else they have to draw 3 cards instead of 2.
+- **Q. Second to One**: Until you play again, everyone has to play a king. If they don’t play a king, they don’t draw cards but you get to put one card back into the deck and shuffle the deck.
+- **K. King of All**: Creates a fort that can only be destroyed by a three of a kind ace. This fort is not destroyed when it becomes the original player’s turn. Instead, as long as the fort is active the player who created it can put a card back into the deck and shuffle it, and then end their turn. Everyone else draws 1 card if they cannot destroy the fort.
+
+The abilities that have just been mentioned are added on to the normal abilities of playing a pair, three of a kind or four of a kind. Everything mentioned after this replace the normal abilities of the straight or flush.
+
+### Tiny Straight (lowest possible non-flush straight including ace)
+Before your next turn, everyone else has to play either A, 2 or 3. If they don’t, they have to draw the length of the straight, Everyone else ALSO has to draw 2 cards anyways. Has to be at least 5 cards long.
+
+### Royal Straight (highest possible non-flush straight)
+Same rule as tiny straight, but everyone has to play a face card. Everyone else also has to draw 3 cards instead of 2 cards. Has to be at least 5 cards long.
+
+### Tiny Flush or Royal Flush:
+Everyone else draws 7 cards, but these flushes have to be 5 cards long or else they don’t count as tiny or royal flushes.
+ 
 
 ---
 
