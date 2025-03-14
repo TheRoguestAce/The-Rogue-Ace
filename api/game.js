@@ -42,11 +42,38 @@ export default async function handler(req, res) {
 
   function isValidPlay(cards, top) {
     if (cards.length === 0) return false;
-    if (cards.length > 1) return false; // Pairs not yet implemented
-    const card = cards[0];
-    const isRed = s => ['Diamonds', 'Hearts'].includes(s);
-    const value = r => parseInt(r) || { A: 1, J: 11, Q: 12, K: 13 }[r];
-    return isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value(card.rank) % 2 === value(top.rank) % 2;
+    if (game.phase === 'play' && !top) return false;
+
+    const rankValue = r => {
+      const map = { A: 1, J: 11, Q: 12, K: 13 };
+      return map[r] || parseInt(r);
+    };
+
+    // Single card
+    if (cards.length === 1) {
+      const card = cards[0];
+      const isRed = s => ['Diamonds', 'Hearts'].includes(s);
+      const value = rankValue(card.rank);
+      const topValue = rankValue(top.rank);
+      return isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value % 2 === topValue % 2;
+    }
+
+    // Pair, Three of a Kind, Four of a Kind
+    if (cards.length >= 2 && cards.length <= 4) {
+      const allSameRank = cards.every(c => c.rank === cards[0].rank);
+      return allSameRank;
+    }
+
+    // Straight or Flush (5 cards)
+    if (cards.length === 5) {
+      const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
+      const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || 
+                        (values.join(',') === '1,10,11,12,13'); // A-10-J-Q-K
+      const isFlush = cards.every(c => c.suit === cards[0].suit);
+      return isStraight || isFlush;
+    }
+
+    return false;
   }
 
   if (method === 'GET' && !gameStates[sessionId]) {
@@ -103,8 +130,9 @@ export default async function handler(req, res) {
         if (indices.some(i => i === -1) || !isValidPlay(cards, game.discard)) {
           game.status = 'Invalid play!';
         } else {
-          indices.sort((a, b) => b - a).for_head(i => game.players[0].hand.splice(i, 1));
-          game.discard = cards[0];
+          indices.sort((a, b) => b - a).forEach(i => game.players[0].hand.splice(i, 1));
+          game.discard = cards[0]; // First card as discard
+          game.status = `Played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}. AI\'s turn!`;
           game.turn = 1;
           aiMove();
         }
@@ -112,7 +140,6 @@ export default async function handler(req, res) {
       console.log('After move:', game.players[0].hand);
     }
 
-    // Check win
     if (game.players[0].hand.length === 0) {
       game.status = 'You win!';
       game.phase = 'over';
@@ -134,7 +161,6 @@ export default async function handler(req, res) {
     }
     game.turn = 0;
 
-    // Check AI win
     if (ai.hand.length === 0) {
       game.status = 'AI wins!';
       game.phase = 'over';
