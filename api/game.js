@@ -79,19 +79,19 @@ async function handler(req, res) {
       const card = cards[0];
       const value = rankValue(card.rank);
       const rulerValue = (rulerSuit === 'Hearts' || (rulerRank === 'K' && opponentSuit === 'Hearts')) && rulerRank !== 'A' ? rankValue(rulerRank === 'K' ? opponentRank : rulerRank) : null;
-      const slicedValue = card.suit === 'Spades' && (rulerSuit === 'Spades' || (rulerRank === 'K' && opponentSuit === 'Spades')) && rulerRank !== 'A' ? Math.ceil(value / 2) - 1 : null;
+      const slicedValue = (rulerSuit === 'Spades' || (rulerRank === 'K' && opponentSuit === 'Spades')) && rulerRank !== 'A' && card.suit === 'Spades' ? Math.ceil(value / 2) - 1 : null;
       let matches = isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value % 2 === topValue % 2;
 
       if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Diamonds') && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) matches = true;
       if ((rulerRank === 'A' && rulerSuit === 'Hearts') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Hearts') && card.suit === 'Hearts') matches = true;
-      if ((rulerRank === 'A' && rulerSuit === 'Spades') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Spades')) matches = matches || Math.floor(value / 2) === topValue; // Pocket Knife: both
+      if ((rulerRank === 'A' && rulerSuit === 'Spades') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Spades')) matches = matches || Math.floor(value / 2) === topValue;
       if (rulerRank === 'A' && rulerSuit === 'Clubs') matches = Math.floor(value / 2) === topValue;
       if ((rulerRank === '5' || (rulerRank === 'K' && opponentRank === '5')) && ['J', 'Q', 'K'].includes(card.rank)) matches = topValue === 5;
       if ((rulerRank === '10' || (rulerRank === 'K' && opponentRank === '10')) && isEven(card.rank) && isEven(top.rank)) matches = true;
       if ((rulerRank === 'J' || (rulerRank === 'K' && opponentRank === 'J')) && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
       if ((rulerRank === 'Q' || (rulerRank === 'K' && opponentRank === 'Q')) && card.rank === 'K') matches = true;
-      if ((rulerSuit === 'Hearts' || (rulerRank === 'K' && opponentSuit === 'Hearts')) && rulerRank !== 'A') matches = matches || rulerValue === topValue || rulerValue % 2 === topValue % 2; // Campfire
-      if ((rulerSuit === 'Spades' || (rulerRank === 'K' && opponentSuit === 'Spades')) && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue; // Sliced
+      if ((rulerSuit === 'Hearts' || (rulerRank === 'K' && opponentSuit === 'Hearts')) && rulerRank !== 'A') matches = matches || rulerValue === topValue || rulerValue % 2 === topValue % 2;
+      if ((rulerSuit === 'Spades' || (rulerRank === 'K' && opponentSuit === 'Spades')) && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue || slicedValue % 2 === topValue % 2; // Sliced: both
       return matches;
     }
 
@@ -99,6 +99,10 @@ async function handler(req, res) {
 
     if (cards.length === 2 && (rulerSuit === 'Clubs' || (rulerRank === 'K' && opponentSuit === 'Clubs')) && rulerRank !== 'A' && game.players[0].hand.length >= 5) {
       return cards.every(c => isValidPlay([c], top));
+    }
+
+    if (cards.length === 2 && (rulerSuit === 'Diamonds' || (rulerRank === 'K' && opponentSuit === 'Diamonds')) && rulerRank !== 'A' && cards[0].suit === 'Diamonds') {
+      return isValidPlay([cards[0]], top); // Diamond Storm: any second card
     }
 
     if (cards.length >= 2 && cards.length <= 4) {
@@ -120,10 +124,6 @@ async function handler(req, res) {
       const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1);
       const isFlush = cards.every(c => c.suit === cards[0].suit);
       return isStraight || isFlush;
-    }
-
-    if ((rulerSuit === 'Diamonds' || (rulerRank === 'K' && opponentSuit === 'Diamonds')) && rulerRank !== 'A' && cards.length === 2 && cards[0].suit === 'Diamonds') {
-      return isValidPlay([cards[0]], top);
     }
 
     return false;
@@ -269,7 +269,7 @@ async function handler(req, res) {
               game.phase = 'play';
               game.status = 'Play a card! (K ruler replay)';
               game.moveHistory.unshift('The player drew 5 to replay (K ruler)');
-              game.firstWin = true; // Prevent infinite replay
+              game.firstWin = true;
             } else if (playerRuler && playerRuler.rank === 'A' && playerRuler.suit === 'Clubs' && !game.firstWin) {
               game.deck = shuffle([...deck]);
               game.players[0].hand = dealHand(5);
