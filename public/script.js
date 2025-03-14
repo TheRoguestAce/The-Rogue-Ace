@@ -21,10 +21,10 @@ const rulerAbilities = {
     9: 'Reverse Nightmare: The opponent’s 9s make the player discard to 5 cards',
     10: 'Perfection: Play any number of even cards on an even card or empty pile (no pairs)',
     J: 'Servant: J/Q/K/A count as each other (pairs OK)',
-    Q: 'Ruler’s Touch: Kings are wild, make the opponent draw 1 (pairs OK)',
+    Q: 'Ruler’s Touch: Kings are wild cards, counting as every rank, make the opponent draw 1 (pairs OK)',
     K: 'Ruler of Rulers: Inherits all of the opponent’s ruler abilities, replay with 5 cards on first win',
     'A-Diamonds': 'Perfect Card: Odd non-face cards (A,3,5,7,9) playable anytime (no pairs)',
-    'A-Hearts': 'Otherworldly Touch: Hearts are wild, others mimic this card (no pairs)',
+    'A-Hearts': 'Otherworldly Touch: Hearts are wild cards, counting as every rank, others mimic this card (no pairs)',
     'A-Spades': 'Pocket Knife: All cards count as both their rank and half rank rounded down (pairs OK)',
     'A-Clubs': 'Nuclear Bomb: First win reshuffles, others 7 cards, winner 5 (skips if the player wins first)'
   }
