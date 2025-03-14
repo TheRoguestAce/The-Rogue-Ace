@@ -84,6 +84,7 @@ async function handler(req, res) {
     if (cards.length === 1) {
       const card = cards[0];
       const value = rankValue(card.rank);
+      const rulerValue = rulerSuit === 'Hearts' && rulerRank !== 'A' ? rankValue(rulerRank) : value; // Campfire: all cards count as ruler rank
       const slicedValue = card.suit === 'Spades' && (rulerSuit === 'Spades' || (rulerRank === 'K' && opponentSuit === 'Spades')) && rulerRank !== 'A' ? Math.ceil(value / 2) - 1 : null;
       let matches = isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value % 2 === topValue % 2;
 
@@ -95,7 +96,7 @@ async function handler(req, res) {
       if (rulerRank === '10' && isEven(card.rank) && isEven(top.rank)) matches = true;
       if (rulerRank === 'J' && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
       if (rulerRank === 'Q' && card.rank === 'K') matches = true;
-      if (rulerSuit === 'Hearts' && rulerRank !== 'A') matches = value === rankValue(rulerRank);
+      if (rulerSuit === 'Hearts' && rulerRank !== 'A') matches = rulerValue === topValue || rulerValue % 2 === topValue % 2; // Campfire: match rank or parity
       if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue;
       if (rulerRank === 'K') {
         if (opponentRank === 'A' && opponentSuit === 'Diamonds' && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) matches = true;
@@ -106,7 +107,7 @@ async function handler(req, res) {
         if (opponentRank === '10' && isEven(card.rank) && isEven(top.rank)) matches = true;
         if (opponentRank === 'J' && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
         if (opponentRank === 'Q' && card.rank === 'K') matches = true;
-        if (opponentSuit === 'Hearts' && opponentRank !== 'A') matches = value === rankValue(opponentRank);
+        if (opponentSuit === 'Hearts' && opponentRank !== 'A') matches = rankValue(opponentRank) === topValue || rankValue(opponentRank) % 2 === topValue % 2;
         if (opponentSuit === 'Spades' && opponentRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue;
       }
       return matches;
