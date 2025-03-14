@@ -42,7 +42,7 @@ export default async function handler(req, res) {
 
   function isValidPlay(cards, top) {
     if (cards.length === 0) return false;
-    if (cards.length > 1) return false; // Pairs later
+    if (cards.length > 1) return false; // Pairs not yet implemented
     const card = cards[0];
     const isRed = s => ['Diamonds', 'Hearts'].includes(s);
     const value = r => parseInt(r) || { A: 1, J: 11, Q: 12, K: 13 }[r];
@@ -70,11 +70,9 @@ export default async function handler(req, res) {
         status: 'Pick your ruler!'
       };
     } else if (move === 'draw') {
-      if (game.phase === 'play') {
-        game.players[0].hand.push(...game.deck.splice(0, 2));
-        game.turn = 1;
-        aiMove();
-      }
+      game.players[0].hand.push(...game.deck.splice(0, 2));
+      game.turn = 1;
+      aiMove();
     } else if (move) {
       const cardStrings = move.split(',');
       const cards = cardStrings.map(cs => {
@@ -105,13 +103,22 @@ export default async function handler(req, res) {
         if (indices.some(i => i === -1) || !isValidPlay(cards, game.discard)) {
           game.status = 'Invalid play!';
         } else {
-          indices.sort((a, b) => b - a).forEach(i => game.players[0].hand.splice(i, 1));
+          indices.sort((a, b) => b - a).for_head(i => game.players[0].hand.splice(i, 1));
           game.discard = cards[0];
           game.turn = 1;
           aiMove();
         }
       }
       console.log('After move:', game.players[0].hand);
+    }
+
+    // Check win
+    if (game.players[0].hand.length === 0) {
+      game.status = 'You win!';
+      game.phase = 'over';
+    } else if (game.players[1].hand.length === 0) {
+      game.status = 'AI wins!';
+      game.phase = 'over';
     }
   }
 
@@ -126,12 +133,12 @@ export default async function handler(req, res) {
       game.status = 'AI drew 2. Your turn!';
     }
     game.turn = 0;
-  }
 
-  // Check winning
-  const winner = game.players[0].hand.length === 0 ? 'player' : game.players[1].hand.length === 0 ? 'ai' : null;
-  if (winner) {
-    game.status = `${winner === 'player' ? 'You' : 'AI'} won! Reset to play again.`;
+    // Check AI win
+    if (ai.hand.length === 0) {
+      game.status = 'AI wins!';
+      game.phase = 'over';
+    }
   }
 
   gameStates[sessionId] = game;
@@ -144,7 +151,6 @@ export default async function handler(req, res) {
     aiRuler: game.players[1].ruler || { rank: 'None', suit: 'None' },
     status: game.status,
     phase: game.phase,
-    session: sessionId,
-    winner
+    session: sessionId
   });
 }
