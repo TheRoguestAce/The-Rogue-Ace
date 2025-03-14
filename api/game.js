@@ -65,10 +65,16 @@ async function handler(req, res) {
 
     if (!top && game.phase === 'play') {
       if (rulerRank === 'A' && rulerSuit === 'Diamonds' && cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0)) return true;
-      if ((rulerRank === '3' || (rulerRank === 'K' && opponentRank === '3')) && cards.length === 1 && cards[0].rank === '7') return true;
-      if ((rulerRank === '7' || (rulerRank === 'K' && opponentRank === '7')) && cards.length === 1 && cards[0].rank === '3') return true;
-      if ((rulerRank === '10' || (rulerRank === 'K' && opponentRank === '10')) && cards.every(c => isEven(c.rank))) return true;
+      if (rulerRank === '3' && cards.length === 1 && cards[0].rank === '7') return true;
+      if (rulerRank === '7' && cards.length === 1 && cards[0].rank === '3') return true;
+      if (rulerRank === '10' && cards.every(c => isEven(c.rank))) return true;
       if (cards.length >= 2 && cards.length <= 4 && cards.every(c => c.rank === cards[0].rank)) return true;
+      if (rulerRank === 'K') { // Inherit opponent's empty pile abilities
+        if (opponentRank === 'A' && opponentSuit === 'Diamonds' && cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0)) return true;
+        if (opponentRank === '3' && cards.length === 1 && cards[0].rank === '7') return true;
+        if (opponentRank === '7' && cards.length === 1 && cards[0].rank === '3') return true;
+        if (opponentRank === '10' && cards.every(c => isEven(c.rank))) return true;
+      }
       return false;
     }
 
@@ -82,24 +88,41 @@ async function handler(req, res) {
       let matches = isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value % 2 === topValue % 2;
 
       if (rulerRank === 'A' && rulerSuit === 'Diamonds' && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) matches = true;
-      if ((rulerRank === 'A' && rulerSuit === 'Hearts') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Hearts')) && card.suit === 'Hearts') matches = true;
+      if (rulerRank === 'A' && rulerSuit === 'Hearts' && card.suit === 'Hearts') matches = true;
       if (rulerRank === 'A' && rulerSuit === 'Spades') matches = Math.floor(value / 2) === topValue;
       if (rulerRank === 'A' && rulerSuit === 'Clubs') matches = Math.floor(value / 2) === topValue;
-      if ((rulerRank === '5' || (rulerRank === 'K' && opponentRank === '5')) && ['J', 'Q', 'K'].includes(card.rank)) matches = topValue === 5;
-      if ((rulerRank === '10' || (rulerRank === 'K' && opponentRank === '10')) && isEven(card.rank) && isEven(top.rank)) matches = true;
-      if ((rulerRank === 'J' || (rulerRank === 'K' && opponentRank === 'J')) && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
-      if ((rulerRank === 'Q' || (rulerRank === 'K' && opponentRank === 'Q')) && card.rank === 'K') matches = true;
-      if ((rulerSuit === 'Hearts' || (rulerRank === 'K' && opponentSuit === 'Hearts')) && rulerRank !== 'A') matches = value === rankValue(rulerRank);
-      if ((rulerSuit === 'Spades' || (rulerRank === 'K' && opponentSuit === 'Spades')) && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue;
-
+      if (rulerRank === '5' && ['J', 'Q', 'K'].includes(card.rank)) matches = topValue === 5;
+      if (rulerRank === '10' && isEven(card.rank) && isEven(top.rank)) matches = true;
+      if (rulerRank === 'J' && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
+      if (rulerRank === 'Q' && card.rank === 'K') matches = true;
+      if (rulerSuit === 'Hearts' && rulerRank !== 'A') matches = value === rankValue(rulerRank);
+      if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue;
+      if (rulerRank === 'K') { // Inherit opponent's single-card abilities
+        if (opponentRank === 'A' && opponentSuit === 'Diamonds' && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) matches = true;
+        if (opponentRank === 'A' && opponentSuit === 'Hearts' && card.suit === 'Hearts') matches = true;
+        if (opponentRank === 'A' && opponentSuit === 'Spades') matches = Math.floor(value / 2) === topValue;
+        if (opponentRank === 'A' && opponentSuit === 'Clubs') matches = Math.floor(value / 2) === topValue;
+        if (opponentRank === '5' && ['J', 'Q', 'K'].includes(card.rank)) matches = topValue === 5;
+        if (opponentRank === '10' && isEven(card.rank) && isEven(top.rank)) matches = true;
+        if (opponentRank === 'J' && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
+        if (opponentRank === 'Q' && card.rank === 'K') matches = true;
+        if (opponentSuit === 'Hearts' && opponentRank !== 'A') matches = value === rankValue(opponentRank);
+        if (opponentSuit === 'Spades' && opponentRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue;
+      }
       return matches;
     }
 
-    if ((rulerRank === '10' || (rulerRank === 'K' && opponentRank === '10')) && cards.every(c => isEven(c.rank)) && isEven(top.rank)) {
+    if (rulerRank === '10' && cards.every(c => isEven(c.rank)) && isEven(top.rank)) {
+      return true;
+    }
+    if (rulerRank === 'K' && opponentRank === '10' && cards.every(c => isEven(c.rank)) && isEven(top.rank)) {
       return true;
     }
 
-    if (cards.length === 2 && (rulerSuit === 'Clubs' || (rulerRank === 'K' && opponentSuit === 'Clubs')) && rulerRank !== 'A' && game.players[0].hand.length >= 5) {
+    if (cards.length === 2 && rulerSuit === 'Clubs' && rulerRank !== 'A' && game.players[0].hand.length >= 5) {
+      return cards.every(c => isValidPlay([c], top));
+    }
+    if (rulerRank === 'K' && opponentSuit === 'Clubs' && opponentRank !== 'A' && cards.length === 2 && game.players[0].hand.length >= 5) {
       return cards.every(c => isValidPlay([c], top));
     }
 
@@ -124,7 +147,10 @@ async function handler(req, res) {
       return isStraight || isFlush;
     }
 
-    if ((rulerSuit === 'Diamonds' || (rulerRank === 'K' && opponentSuit === 'Diamonds')) && rulerRank !== 'A' && cards.length === 2 && cards[0].suit === 'Diamonds') {
+    if (rulerSuit === 'Diamonds' && rulerRank !== 'A' && cards.length === 2 && cards[0].suit === 'Diamonds') {
+      return isValidPlay([cards[0]], top);
+    }
+    if (rulerRank === 'K' && opponentSuit === 'Diamonds' && opponentRank !== 'A' && cards.length === 2 && cards[0].suit === 'Diamonds') {
       return isValidPlay([cards[0]], top);
     }
 
@@ -226,11 +252,11 @@ async function handler(req, res) {
                              (isStraight ? 'straight' : isFlush ? 'flush' : allEven ? 'even only' : 'odd only'))));
           game.lastPlayCount = cards.length;
 
-          if ((rulerRank === '3' || (rulerRank === 'K' && opponentRank === '3')) && cards[0].rank === '7') {
+          if (rulerRank === '3' && cards[0].rank === '7') {
             game.players[1].hand.push(...game.deck.splice(0, 2));
             game.moveHistory.unshift('The opponent drew 2 (3 ruler)');
           }
-          if ((rulerRank === '4' || (rulerRank === 'K' && opponentRank === '4')) && game.lastPlayType === '4 of a kind') {
+          if (rulerRank === '4' && game.lastPlayType === '4 of a kind') {
             game.deck.push(...game.players[0].hand, ...game.players[1].hand);
             game.players[0].hand = [];
             game.players[1].hand = [];
@@ -239,24 +265,58 @@ async function handler(req, res) {
             game.players[1].hand = dealHand(7);
             game.moveHistory.unshift('All cards reshuffled, the player drew 3, the opponent drew 7 (4 ruler)');
           }
-          if ((rulerRank === '6' || (rulerRank === 'K' && opponentRank === '6')) && cards[0].rank === '6') {
+          if (rulerRank === '6' && cards[0].rank === '6') {
             const draw = Math.max(0, 7 - game.players[1].hand.length);
             if (draw > 0) {
               game.players[1].hand.push(...game.deck.splice(0, draw));
               game.moveHistory.unshift(`The opponent drew ${draw} to 7 (6 ruler)`);
             }
           }
-          if ((rulerRank === '7' || (rulerRank === 'K' && opponentRank === '7')) && cards[0].rank === '3') {
+          if (rulerRank === '7' && cards[0].rank === '3') {
             game.players[1].hand.push(...game.deck.splice(0, 2));
             game.moveHistory.unshift('The opponent drew 2 (7 ruler)');
           }
-          if ((rulerRank === '8' || (rulerRank === 'K' && opponentRank === '8')) && cards[0].rank === '8' && game.players[1].hand.length <= 3) {
+          if (rulerRank === '8' && cards[0].rank === '8' && game.players[1].hand.length <= 3) {
             game.players[1].hand.push(...game.deck.splice(0, 2));
             game.moveHistory.unshift('The opponent drew 2 (8 ruler)');
           }
-          if ((rulerRank === 'Q' || (rulerRank === 'K' && opponentRank === 'Q')) && cards[0].rank === 'K') {
+          if (rulerRank === 'Q' && cards[0].rank === 'K') {
             game.players[1].hand.push(...game.deck.splice(0, 1));
             game.moveHistory.unshift('The opponent drew 1 (Q ruler)');
+          }
+          if (rulerRank === 'K') { // Inherit opponent's play effects
+            if (opponentRank === '3' && cards[0].rank === '7') {
+              game.players[1].hand.push(...game.deck.splice(0, 2));
+              game.moveHistory.unshift('The opponent drew 2 (K inherits 3 ruler)');
+            }
+            if (opponentRank === '4' && game.lastPlayType === '4 of a kind') {
+              game.deck.push(...game.players[0].hand, ...game.players[1].hand);
+              game.players[0].hand = [];
+              game.players[1].hand = [];
+              shuffle(game.deck);
+              game.players[0].hand = dealHand(3);
+              game.players[1].hand = dealHand(7);
+              game.moveHistory.unshift('All cards reshuffled, the player drew 3, the opponent drew 7 (K inherits 4 ruler)');
+            }
+            if (opponentRank === '6' && cards[0].rank === '6') {
+              const draw = Math.max(0, 7 - game.players[1].hand.length);
+              if (draw > 0) {
+                game.players[1].hand.push(...game.deck.splice(0, draw));
+                game.moveHistory.unshift(`The opponent drew ${draw} to 7 (K inherits 6 ruler)`);
+              }
+            }
+            if (opponentRank === '7' && cards[0].rank === '3') {
+              game.players[1].hand.push(...game.deck.splice(0, 2));
+              game.moveHistory.unshift('The opponent drew 2 (K inherits 7 ruler)');
+            }
+            if (opponentRank === '8' && cards[0].rank === '8' && game.players[1].hand.length <= 3) {
+              game.players[1].hand.push(...game.deck.splice(0, 2));
+              game.moveHistory.unshift('The opponent drew 2 (K inherits 8 ruler)');
+            }
+            if (opponentRank === 'Q' && cards[0].rank === 'K') {
+              game.players[1].hand.push(...game.deck.splice(0, 1));
+              game.moveHistory.unshift('The opponent drew 1 (K inherits Q ruler)');
+            }
           }
 
           game.moveHistory.unshift(`The player played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
@@ -423,7 +483,5 @@ async function handler(req, res) {
   console.log('Sending response:', JSON.stringify(response));
   res.status(200).json(response);
 }
-
-function aiMove() {}
 
 module.exports = handler;
