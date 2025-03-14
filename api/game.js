@@ -6,14 +6,14 @@ export default async function handler(req, res) {
   const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const initialDeck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
 
-  // Game state (resets per request—later persist)
+  // Fresh state per request (no persistence yet)
   let gameState = {
     deck: shuffle([...initialDeck]),
     discardPile: [],
     players: [{ hand: [], ruler: null }, { hand: [], ruler: null }],
     currentPlayer: 0,
     message: 'Pick your ruler!',
-    state: 'setup' // 'setup' or 'playing'
+    state: 'setup'
   };
 
   function shuffle(array) {
@@ -33,6 +33,7 @@ export default async function handler(req, res) {
       shuffle(gameState.deck);
       hand.push(gameState.deck.shift());
     }
+    console.log('Dealt hand:', hand); // Debug
     return hand;
   }
 
@@ -42,26 +43,24 @@ export default async function handler(req, res) {
     return isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || parity(card.rank) % 2 === parity(top.rank) % 2;
   }
 
-  // Initialize on first GET
-  if (method === 'GET' && gameState.state === 'setup') {
+  // Initialize on GET
+  if (method === 'GET') {
     gameState.players[0].hand = dealHand();
     gameState.players[1].hand = dealHand();
-    console.log('Initial hands:', gameState.players[0].hand, gameState.players[1].hand); // Debug
+    console.log('Player 0 hand:', gameState.players[0].hand); // Debug
+    console.log('Player 1 hand:', gameState.players[1].hand); // Debug
   }
 
-  // Handle actions
+  // Handle actions on POST
   if (method === 'POST') {
     const { action } = query;
-
     if (gameState.state === 'setup') {
-      // Pick ruler
       const [rank, suitChar] = [action.slice(0, -1), action.slice(-1)];
       const suit = suits.find(s => s[0] === suitChar);
       const card = { rank, suit };
       const idx = gameState.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
       if (idx >= 0) {
         gameState.players[0].ruler = gameState.players[0].hand.splice(idx, 1)[0];
-        // AI picks random ruler
         gameState.players[1].ruler = gameState.players[1].hand.splice(Math.floor(Math.random() * 8), 1)[0];
         gameState.discardPile.push(gameState.deck.shift());
         gameState.state = 'playing';
