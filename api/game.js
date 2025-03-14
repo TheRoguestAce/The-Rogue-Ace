@@ -57,17 +57,22 @@ export default async function handler(req, res) {
     if (gameState.state === 'setup') {
       const [rank, suitChar] = [action.slice(0, -1), action.slice(-1)];
       const suit = suits.find(s => s[0] === suitChar);
-      const card = { rank, suit };
-      const idx = gameState.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
-      if (idx >= 0) {
-        gameState.players[0].ruler = gameState.players[0].hand.splice(idx, 1)[0];
-        gameState.players[1].ruler = gameState.players[1].hand.splice(Math.floor(Math.random() * 8), 1)[0];
-        gameState.discardPile.push(gameState.deck.shift());
-        gameState.state = 'playing';
-        gameState.message = 'Game started!';
+      if (!suit || !ranks.includes(rank)) {
+        gameState.message = 'Invalid ruler! Try again (e.g., 5H).';
       } else {
-        gameState.message = 'Invalid ruler choice!';
+        const card = { rank, suit };
+        const idx = gameState.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+        if (idx >= 0) {
+          gameState.players[0].ruler = gameState.players[0].hand.splice(idx, 1)[0];
+          gameState.players[1].ruler = gameState.players[1].hand.splice(Math.floor(Math.random() * gameState.players[1].hand.length), 1)[0];
+          gameState.discardPile.push(gameState.deck.shift());
+          gameState.state = 'playing';
+          gameState.message = 'Game started! Play a card.';
+        } else {
+          gameState.message = 'Card not in hand! Pick from your hand.';
+        }
       }
+      console.log('Post-ruler Player 0 hand:', gameState.players[0].hand); // Debug
     } else if (gameState.state === 'playing') {
       if (action === 'draw') {
         gameState.players[0].hand.push(...gameState.deck.splice(0, 2));
@@ -76,14 +81,18 @@ export default async function handler(req, res) {
       } else {
         const [rank, suitChar] = [action.slice(0, -1), action.slice(-1)];
         const suit = suits.find(s => s[0] === suitChar);
-        const card = { rank, suit };
-        const idx = gameState.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
-        if (idx >= 0 && isValidPlay(card, gameState.discardPile[0])) {
-          gameState.discardPile.unshift(gameState.players[0].hand.splice(idx, 1)[0]);
-          gameState.currentPlayer = 1;
-          aiTurn();
+        if (suit && ranks.includes(rank)) {
+          const card = { rank, suit };
+          const idx = gameState.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+          if (idx >= 0 && isValidPlay(card, gameState.discardPile[0])) {
+            gameState.discardPile.unshift(gameState.players[0].hand.splice(idx, 1)[0]);
+            gameState.currentPlayer = 1;
+            aiTurn();
+          } else {
+            gameState.message = 'Invalid play!';
+          }
         } else {
-          gameState.message = 'Invalid play!';
+          gameState.message = 'Invalid card format!';
         }
       }
     }
