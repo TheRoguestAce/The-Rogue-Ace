@@ -47,7 +47,7 @@ There are also some special combinations of cards that allow you to play multipl
 - **Four of a kind:** Everyone else draws 4 cards.  
 - **Straight:** You need at least 4 cards in a row to do this. Everyone else draws as many cards as the length of the straight minus 2.  
 - **Flush:** You need at least a 4 card flush. Everyone else draws as many cards as the length of the flush minus 2.  
-- **Even Only:** You need 5 even cards minimum. Everyone else draws as many cards as the amount of even cards you used minus 3.  
+- **Even Only:** You need 5 even cards minimum. Everyone else draws as many cards as the amount of even cards you used minus 3. Note that you can only play multiple evens at a time if you play 5 of them. You cannot play 2 evens at a time if they are not the same number. 
 - **Odd Only:** Same rules as even only but odds only. Everyone else draws as many cards as the amount of odd cards you used minus 3.  
 
 If you run out of cards and need to draw more, put the discard pile back into the deck and reshuffle. If a player cannot play any cards to match the card in the discard pile, they draw TWO cards.  
