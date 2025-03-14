@@ -9,6 +9,10 @@ async function fetchGame(move = '', reset = false) {
   const data = await res.json();
   console.log('Received:', JSON.stringify(data));
   updateDisplay(data);
+  // Refresh after AI move if it’s AI’s turn
+  if (data.turn === 0 && move && move !== 'draw' && !reset) {
+    setTimeout(() => fetchGame(), 500); // Delay to ensure AI move processes
+  }
 }
 
 function updateDisplay(data) {
@@ -36,7 +40,7 @@ function toggleCard(card) {
   } else {
     selectedCards.splice(index, 1);
   }
-  fetchGame(); // Refresh display
+  fetchGame();
 }
 
 function playSelected() {
