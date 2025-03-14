@@ -56,21 +56,27 @@ export default async function handler(req, res) {
   if (method === 'POST') {
     const { move } = query;
     if (game.phase === 'setup') {
-      const [rank, suitChar] = [move.slice(0, -1), move.slice(-1)];
-      const suit = suits.find(s => s[0] === suitChar);
-      if (!suit || !ranks.includes(rank)) {
-        game.status = 'Invalid ruler! Use format like 5H.';
+      if (!move || move.length < 2) {
+        game.status = 'Enter a card like 5H!';
       } else {
-        const card = { rank, suit };
-        const idx = game.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
-        if (idx === -1) {
-          game.status = 'Ruler not in hand!';
+        const [rank, suitChar] = [move.slice(0, -1), move.slice(-1)];
+        const suit = suits.find(s => s[0] === suitChar);
+        if (!suit || !ranks.includes(rank)) {
+          game.status = 'Invalid ruler! Use format like 5H.';
         } else {
-          game.players[0].ruler = game.players[0].hand.splice(idx, 1)[0];
-          game.players[1].ruler = game.players[1].hand.splice(Math.floor(Math.random() * game.players[1].hand.length), 1)[0];
-          game.discard = game.deck.shift();
-          game.phase = 'play';
-          game.status = 'Play a card!';
+          const card = { rank, suit };
+          const playerHand = [...game.players[0].hand]; // Copy to avoid direct mutation issues
+          const idx = playerHand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+          if (idx === -1) {
+            game.status = 'Ruler not in hand!';
+          } else {
+            game.players[0].ruler = playerHand[idx];
+            game.players[0].hand = playerHand.filter((_, i) => i !== idx); // Remove only the chosen card
+            game.players[1].ruler = game.players[1].hand.splice(Math.floor(Math.random() * game.players[1].hand.length), 1)[0];
+            game.discard = game.deck.shift();
+            game.phase = 'play';
+            game.status = 'Play a card!';
+          }
         }
       }
       console.log('After ruler pick:', game.players[0].hand);
@@ -80,19 +86,25 @@ export default async function handler(req, res) {
         game.turn = 1;
         aiMove();
       } else {
-        const [rank, suitChar] = [move.slice(0, -1), move.slice(-1)];
-        const suit = suits.find(s => s[0] === suitChar);
-        if (!suit || !ranks.includes(rank)) {
-          game.status = 'Invalid card! Use format like 5H.';
+        if (!move || move.length < 2) {
+          game.status = 'Enter a card like 5H!';
         } else {
-          const card = { rank, suit };
-          const idx = game.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
-          if (idx === -1 || !isValidPlay(card, game.discard)) {
-            game.status = 'Invalid play!';
+          const [rank, suitChar] = [move.slice(0, -1), move.slice(-1)];
+          const suit = suits.find(s => s[0] === suitChar);
+          if (!suit || !ranks.includes(rank)) {
+            game.status = 'Invalid card! Use format like 5H.';
           } else {
-            game.discard = game.players[0].hand.splice(idx, 1)[0];
-            game.turn = 1;
-            aiMove();
+            const card = { rank, suit };
+            const playerHand = [...game.players[0].hand];
+            const idx = playerHand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+            if (idx === -1 || !isValidPlay(card, game.discard)) {
+              game.status = 'Invalid play!';
+            } else {
+              game.discard = playerHand[idx];
+              game.players[0].hand = playerHand.filter((_, i) => i !== idx);
+              game.turn = 1;
+              aiMove();
+            }
           }
         }
       }
