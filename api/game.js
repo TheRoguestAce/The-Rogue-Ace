@@ -104,8 +104,10 @@ export default async function handler(req, res) {
     const idx = ai.hand.findIndex(c => isValidPlay(c, game.discard));
     if (idx !== -1) {
       game.discard = ai.hand.splice(idx, 1)[0];
+      game.status = 'AI played. Your turn!';
     } else {
       ai.hand.push(...game.deck.splice(0, 2));
+      game.status = 'AI drew 2. Your turn!';
     }
     game.turn = 0;
   }
@@ -118,7 +120,6 @@ export default async function handler(req, res) {
     playerRuler: game.players[0].ruler || { rank: 'N/A', suit: 'N/A' },
     aiRuler: game.players[1].ruler || { rank: 'N/A', suit: 'N/A' },
     status: game.status,
-    phase: game.phase,
-    winner: game.players[0].hand.length === 0 ? 'player' : game.players[1].hand.length === 0 ? 'ai' : null
+    phase: game.phase
   });
 }
