@@ -26,7 +26,8 @@ export default async function handler(req, res) {
       lastPlayCount: 1,
       lastPlayType: 'single',
       skipAITurn: false,
-      firstWin: false
+      firstWin: false,
+      canPlay: true
     };
     gameStates[sessionId] = game;
   }
@@ -127,6 +128,7 @@ export default async function handler(req, res) {
       game.players[1].hand = dealHand(8);
       console.log(`Player hand:`, game.players[0].hand);
     }
+    game.canPlay = game.players[0].hand.some(card => isValidPlay([card], game.discard));
   }
 
   if (method === 'POST') {
@@ -147,7 +149,8 @@ export default async function handler(req, res) {
         lastPlayCount: 1,
         lastPlayType: 'single',
         skipAITurn: false,
-        firstWin: false
+        firstWin: false,
+        canPlay: true
       };
     } else if (move === 'draw') {
       game.players[0].hand.push(...game.deck.splice(0, 2));
@@ -251,14 +254,14 @@ export default async function handler(req, res) {
     if (game.players[0].hand.length === 0) {
       game.status = 'You win!';
       game.phase = 'over';
-      if (rulerRank === 'K') {
+      if (playerRuler && playerRuler.rank === 'K') {
         game.deck = shuffle([...deck]);
         game.players[0].hand = dealHand(5);
         game.players[1].hand = dealHand(8);
         game.phase = 'play';
         game.status = 'Play a card! (K ruler replay)';
         game.moveHistory.unshift('You drew 5 to replay (K ruler)');
-      } else if (rulerRank === 'A' && playerRuler.suit === 'Clubs' && !game.firstWin) {
+      } else if (playerRuler && playerRuler.rank === 'A' && playerRuler.suit === 'Clubs' && !game.firstWin) {
         game.deck = shuffle([...deck]);
         game.players[0].hand = dealHand(5);
         game.players[1].hand = dealHand(7);
@@ -280,6 +283,7 @@ export default async function handler(req, res) {
         game.firstWin = true;
       }
     }
+    game.canPlay = game.players[0].hand.some(card => isValidPlay([card], game.discard));
   }
 
   function aiMove() {
@@ -386,7 +390,8 @@ export default async function handler(req, res) {
     status: game.status,
     phase: game.phase,
     session: sessionId,
-    moveHistory: game.moveHistory
+    moveHistory: game.moveHistory,
+    canPlay: game.canPlay
   };
   console.log('Sending response:', JSON.stringify(response));
   res.status(200).json(response);
