@@ -22,7 +22,7 @@ const rulerAbilities = {
     10: 'Perfection: Play any number of even cards on an even card or empty pile (no pairs)',
     J: 'Servant: J/Q/K/A count as each other (pairs OK)',
     Q: 'Ruler’s Touch: Kings are wild, make the opponent draw 1 (pairs OK)',
-    K: 'Ruler of Rulers: Inherits all rank abilities (2-Q), the player draws 5 on win to replay',
+    K: 'Ruler of Rulers: Inherits all of the opponent’s ruler abilities, the player draws 5 on win to replay',
     'A-Diamonds': 'Perfect Card: Odd non-face cards (A,3,5,7,9) playable anytime (no pairs)',
     'A-Hearts': 'Otherworldly Touch: Hearts are wild, others mimic this card (no pairs)',
     'A-Spades': 'Pocket Knife: All cards count as half rank, rounded down (pairs OK)',
