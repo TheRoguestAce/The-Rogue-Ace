@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>The Rogue Ace</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="game">
+    <h1>The Rogue Ace</h1>
+    <div>Discard Pile: <span id="discard"></span></div>
+    <div>Your Hand: <span id="player-hand"></span></div>
+    <div>AI Hand: <span id="ai-hand"></span> cards</div>
+    <div>Your Ruler: <span id="player-ruler"></span></div>
+    <div>AI Ruler: <span id="ai-ruler"></span></div>
+    <div id="message"></div>
+    <input id="action" placeholder="e.g., 5H or draw" />
+    <button onclick="play()">Play</button>
+  </div>
+  <script src="/script.js"></script>
+</body>
+</html>
