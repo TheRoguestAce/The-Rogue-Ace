@@ -1,3 +1,5 @@
-.card { display: inline-block; padding: 5px; border: 1px solid #000; margin: 2px; }
+body { font-family: Arial, sans-serif; }
+#game { max-width: 600px; margin: 20px auto; }
+.card { padding: 5px; border: 1px solid #000; margin: 2px; display: inline-block; }
 .red { color: red; }
-#message { color: #d90429; margin: 10px 0; }
+#status { color: #d90429; }
