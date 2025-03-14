@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     console.log(`New session ${sessionId} - Initializing`);
     game = {
       deck: shuffle([...deck]),
-      discard: null,
+      discard: null, // Explicitly null, set later
       players: [
         { hand: [], ruler: null },
         { hand: [], ruler: null }
@@ -128,6 +128,10 @@ export default async function handler(req, res) {
       game.players[1].hand = dealHand(8);
       console.log(`Player hand:`, game.players[0].hand);
     }
+    if (!game.discard && game.deck.length > 0) {
+      game.discard = game.deck.shift(); // Ensure discard is set
+      console.log(`Initial discard set: ${game.discard.rank}${game.discard.suit[0]}`);
+    }
     game.canPlay = game.players[0].hand.some(card => isValidPlay([card], game.discard));
   }
 
@@ -137,7 +141,7 @@ export default async function handler(req, res) {
       console.log(`Resetting ${sessionId}`);
       game = {
         deck: shuffle([...deck]),
-        discard: null,
+        discard: game.deck.length > 0 ? game.deck.shift() : null, // Set discard on reset
         players: [
           { hand: dealHand(8), ruler: null },
           { hand: dealHand(8), ruler: null }
@@ -152,6 +156,7 @@ export default async function handler(req, res) {
         firstWin: false,
         canPlay: true
       };
+      console.log(`Reset discard: ${game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None'}`);
     } else if (move === 'draw') {
       game.players[0].hand.push(...game.deck.splice(0, 2));
       game.moveHistory.unshift(`You drew 2`);
@@ -177,7 +182,7 @@ export default async function handler(req, res) {
           } else {
             game.players[0].ruler = game.players[0].hand.splice(idx, 1)[0];
             game.players[1].ruler = game.players[1].hand.splice(Math.floor(Math.random() * game.players[1].hand.length), 1)[0];
-            game.discard = game.deck.shift();
+            game.discard = game.deck.length > 0 ? game.deck.shift() : null;
             game.phase = 'play';
             game.status = 'Play a card!';
             game.moveHistory = [`You set ruler ${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}`];
@@ -196,7 +201,6 @@ export default async function handler(req, res) {
           const playerRuler = game.players[0].ruler;
           const rulerRank = playerRuler ? playerRuler.rank : null;
 
-          // Determine play type
           const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
           const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || 
                             (cards.length === 5 && values.join(',') === '1,10,11,12,13');
@@ -209,7 +213,6 @@ export default async function handler(req, res) {
                              (isStraight ? 'straight' : isFlush ? 'flush' : allEven ? 'even only' : 'odd only')));
           game.lastPlayCount = cards.length;
 
-          // Rank abilities
           if (rulerRank === '3' && cards[0].rank === '7') {
             game.players[1].hand.push(...game.deck.splice(0, 2));
             game.moveHistory.unshift('AI drew 2 (3 ruler)');
@@ -299,7 +302,6 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Draw based on player's last play
     if (game.lastPlayCount > 1 && game.deck.length > 0) {
       let drawCount = game.lastPlayType === 'even only' || game.lastPlayType === 'odd only' ? 
                      Math.max(0, game.lastPlayCount - 3) : 
@@ -312,7 +314,6 @@ export default async function handler(req, res) {
       console.log(`AI drew ${actualDraw}, new hand:`, ai.hand);
     }
 
-    // AI 9 effect on player
     if (game.players[1].ruler.rank === '9' && game.lastPlayCount === 1 && game.discard.rank === '9' && game.players[0].hand.length > 5) {
       const discardCount = game.players[0].hand.length - 5;
       game.deck.push(...game.players[0].hand.splice(0, discardCount));
@@ -320,7 +321,6 @@ export default async function handler(req, res) {
       game.moveHistory.unshift(`You discarded ${discardCount} to 5 (AI 9 ruler)`);
     }
 
-    // AI play
     const idx = ai.hand.findIndex(c => isValidPlay([c], game.discard));
     if (idx !== -1) {
       game.discard = ai.hand.splice(idx, 1)[0];
@@ -330,7 +330,6 @@ export default async function handler(req, res) {
       game.lastPlayCount = 1;
       game.lastPlayType = 'single';
 
-      // AI rank abilities
       const aiRuler = game.players[1].ruler;
       if (aiRuler.rank === '3' && game.discard.rank === '7') {
         game.players[0].hand.push(...game.deck.splice(0, 2));
@@ -382,12 +381,12 @@ export default async function handler(req, res) {
   gameStates[sessionId] = game;
 
   const response = {
-    discard: game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None',
-    playerHand: game.players[0].hand,
-    aiHandSize: game.players[1].hand.length,
+    discard: game.discard && game.discard.rank ? `${game.discard.rank}${game.discard.suit[0]}` : 'None', // Extra null check
+    playerHand: game.players[0].hand || [],
+    aiHandSize: game.players[1].hand.length || 0,
     playerRuler: game.players[0].ruler ? `${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}` : 'None',
     aiRuler: game.players[1].ruler ? `${game.players[1].ruler.rank}${game.players[1].ruler.suit[0]}` : 'None',
-    status: game.status,
+    status: game.status || 'Error',
     phase: game.phase,
     session: sessionId,
     moveHistory: game.moveHistory,
