@@ -6,8 +6,8 @@ let data = {};
 const rulerAbilities = {
   suits: {
     Diamonds: 'Diamond Storm: Play a diamond card + another card (not a pair)',
-    Hearts: 'Campfire: Other cards count as this heart’s rank (no pairs)',
-    Spades: 'Sliced: Spades count as both their rank and rank divided by 2, rounded up, minus 1 (pairs OK)',
+    Hearts: 'Campfire: Cards count as both their rank and this heart’s rank (no pairs)',
+    Spades: 'Sliced: Spades count as both their rank and rank ÷ 2 rounded up - 1 (pairs OK)',
     Clubs: 'Strike: Play 2 cards if 5+ in hand, counts as a pair'
   },
   ranks: {
@@ -22,14 +22,15 @@ const rulerAbilities = {
     10: 'Perfection: Play any number of even cards on an even card or empty pile (no pairs)',
     J: 'Servant: J/Q/K/A count as each other (pairs OK)',
     Q: 'Ruler’s Touch: Kings are wild, make the opponent draw 1 (pairs OK)',
-    K: 'Ruler of Rulers: Inherits all of the opponent’s ruler abilities, the player draws 5 on win to replay',
+    K: 'Ruler of Rulers: Inherits all of the opponent’s ruler abilities, replay with 5 cards on first win',
     'A-Diamonds': 'Perfect Card: Odd non-face cards (A,3,5,7,9) playable anytime (no pairs)',
     'A-Hearts': 'Otherworldly Touch: Hearts are wild, others mimic this card (no pairs)',
-    'A-Spades': 'Pocket Knife: All cards count as half rank, rounded down (pairs OK)',
+    'A-Spades': 'Pocket Knife: All cards count as both their rank and half rank rounded down (pairs OK)',
     'A-Clubs': 'Nuclear Bomb: First win reshuffles, others 7 cards, winner 5 (skips if the player wins first)'
   }
 };
 
+// Rest of script.js remains unchanged (fetchGame, updateDisplay, etc.)
 async function fetchGame(move = '', reset = false) {
   const url = reset ? `/api/game?session=${sessionId}&reset=true` : move ? `/api/game?session=${sessionId}&move=${move}` : `/api/game?session=${sessionId}`;
   console.log(`Fetching: ${url}`);
