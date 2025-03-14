@@ -7,7 +7,7 @@ const rulerAbilities = {
   suits: {
     Diamonds: 'Diamond Storm: Play a diamond card + another card (not a pair)',
     Hearts: 'Campfire: Other cards count as this heart’s rank (no pairs)',
-    Spades: 'Sliced: Spades count as half their rank, rounded up (pairs OK)',
+    Spades: 'Divide by Two: Spades count as their rank divided by 2, rounded up, minus 1 (pairs OK)',
     Clubs: 'Strike: Play 2 cards if 5+ in hand, counts as a pair'
   },
   ranks: {
@@ -19,7 +19,7 @@ const rulerAbilities = {
     7: 'Lucky Spin: Play a 3 anytime, AI draws 2',
     8: 'Seeing Red: If AI has ≤3 cards, 8 makes them draw 2',
     9: 'Reverse Nightmare: AI’s 9s make you discard to 5 cards',
-    10: 'Perfection: Even cards stack on evens (no pairs)',
+    10: 'Perfection: Play any number of even cards on an even card or empty pile (no pairs)',
     J: 'Servant: J/Q/K/A count as each other (pairs OK)',
     Q: 'Ruler’s Touch: Kings are wild, make AI draw 1 (pairs OK)',
     K: 'Ruler of Rulers: Inherits all rank abilities (2-Q), draw 5 on win to replay',
@@ -44,11 +44,16 @@ async function fetchGame(move = '', reset = false) {
 
 function updateDisplay(data) {
   document.getElementById('discard').textContent = data.discard || 'None';
-  document.getElementById('player-hand').innerHTML = (data.playerHand || []).map(c => {
-    const cardStr = `${c.rank}${c.suit[0]}`;
-    const isSelected = selectedCards.includes(cardStr);
-    return `<span class="card ${['Diamonds', 'Hearts'].includes(c.suit) ? 'red' : ''} ${isSelected ? 'selected' : ''}" data-card="${cardStr}" onclick="toggleCard('${cardStr}')">${cardStr}</span>`;
-  }).join(' ') || 'Empty';
+  const playerHandElement = document.getElementById('player-hand');
+  if (data.playerHand && data.playerHand.length > 0) {
+    playerHandElement.innerHTML = data.playerHand.map(c => {
+      const cardStr = `${c.rank}${c.suit[0]}`;
+      const isSelected = selectedCards.includes(cardStr);
+      return `<span class="card ${['Diamonds', 'Hearts'].includes(c.suit) ? 'red' : ''} ${isSelected ? 'selected' : ''}" data-card="${cardStr}" onclick="toggleCard('${cardStr}')">${cardStr}</span>`;
+    }).join(' ');
+  } else {
+    playerHandElement.textContent = 'Empty';
+  }
   document.getElementById('ai-hand').textContent = data.aiHandSize || 0;
   document.getElementById('player-ruler').textContent = data.playerRuler || 'None';
   document.getElementById('ai-ruler').textContent = data.aiRuler || 'None';
@@ -61,7 +66,7 @@ function updateDisplay(data) {
 
 function toggleCard(card) {
   if (data.phase === 'setup') {
-    selectedCards = [card]; // Replace selection
+    selectedCards = [card];
     const [rank, suitChar] = [card.slice(0, -1), card.slice(-1)];
     const suit = Object.keys(rulerAbilities.suits).find(s => s[0] === suitChar);
     const abilityKey = rank === 'A' ? `A-${suit}` : rank;
@@ -111,4 +116,6 @@ function resetGame() {
   fetchGame('', true);
 }
 
-fetchGame();
+document.addEventListener('DOMContentLoaded', () => {
+  fetchGame();
+});
