@@ -37,7 +37,8 @@ async function fetchGame(move = '', reset = false) {
   data = await res.json();
   console.log('Received:', JSON.stringify(data));
   updateDisplay(data);
-  if (data.turn === 0 && move && move !== 'draw' && !reset) {
+  // Only loop if not endgame and turn returns to player
+  if (data.phase !== 'over' && data.turn === 0 && move && move !== 'draw' && !reset) {
     setTimeout(() => fetchGame(), 500);
   }
 }
