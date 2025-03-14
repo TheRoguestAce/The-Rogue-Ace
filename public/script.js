@@ -7,7 +7,7 @@ const rulerAbilities = {
   suits: {
     Diamonds: 'Diamond Storm: Play a diamond card + another card (not a pair)',
     Hearts: 'Campfire: Other cards count as this heart’s rank (no pairs)',
-    Spades: 'Divide by Two: Spades count as their rank divided by 2, rounded up, minus 1 (pairs OK)',
+    Spades: 'Sliced: Spades count as both their rank and rank divided by 2, rounded up, minus 1 (pairs OK)',
     Clubs: 'Strike: Play 2 cards if 5+ in hand, counts as a pair'
   },
   ranks: {
@@ -37,7 +37,6 @@ async function fetchGame(move = '', reset = false) {
   data = await res.json();
   console.log('Received:', JSON.stringify(data));
   updateDisplay(data);
-  // Only loop if not endgame and turn returns to player
   if (data.phase !== 'over' && data.turn === 0 && move && move !== 'draw' && !reset) {
     setTimeout(() => fetchGame(), 500);
   }
