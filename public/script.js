@@ -10,8 +10,8 @@ function updateUI(data) {
   document.getElementById('player-hand').innerHTML = data.playerHand.map(c =>
     `<span class="card ${['Diamonds', 'Hearts'].includes(c.suit) ? 'red' : ''}">${c.rank}${c.suit[0]}</span>`).join('');
   document.getElementById('ai-hand').innerText = data.aiHandCount;
-  document.getElementById('player-ruler').innerText = `${data.playerRuler.rank}${data.playerRuler.suit[0]}`;
-  document.getElementById('ai-ruler').innerText = `${data.aiRuler.rank}${data.aiRuler.suit[0]}`;
+  document.getElementById('player-ruler').innerText = data.playerRuler ? `${data.playerRuler.rank}${data.playerRuler.suit[0]}` : 'Not set';
+  document.getElementById('ai-ruler').innerText = data.aiRuler ? `${data.aiRuler.rank}${data.aiRuler.suit[0]}` : 'Not set';
   document.getElementById('message').innerText = data.message;
   if (data.gameOver) alert(data.playerHand.length === 0 ? 'You win!' : 'AI wins!');
 }
