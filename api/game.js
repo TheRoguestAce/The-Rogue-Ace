@@ -1,16 +1,13 @@
-// In-memory store (resets on Vercel redeploy, fine for testing)
 const gameStates = {};
 
 export default async function handler(req, res) {
   const { method, query } = req;
-  const sessionId = query.session || 'default'; // Use query param for session
+  const sessionId = query.session || 'default';
 
-  // Constants
   const suits = ['Diamonds', 'Hearts', 'Spades', 'Clubs'];
   const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const deck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
 
-  // Load or initialize state
   let game = gameStates[sessionId] || {
     deck: shuffle([...deck]),
     discard: null,
@@ -43,33 +40,54 @@ export default async function handler(req, res) {
     return hand;
   }
 
-  function isValidPlay(card, top) {
+  function isValidPlay(cards, top) {
+    if (cards.length === 0) return false;
+    if (cards.length > 1) return false; // Pairs not implemented yet
+    const card = cards[0];
     const isRed = s => ['Diamonds', 'Hearts'].includes(s);
     const value = r => parseInt(r) || { A: 1, J: 11, Q: 12, K: 13 }[r];
     return isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value(card.rank) % 2 === value(top.rank) % 2;
   }
 
-  // Initialize only if new session
   if (method === 'GET' && !gameStates[sessionId]) {
     game.players[0].hand = dealHand();
     game.players[1].hand = dealHand();
     console.log('Player hand:', game.players[0].hand);
   }
 
-  // Actions
   if (method === 'POST') {
-    const { move } = query;
-    if (game.phase === 'setup') {
-      if (!move || move.length < 2) {
-        game.status = 'Enter a card like 5H!';
-      } else {
-        const [rank, suitChar] = [move.slice(0, -1), move.slice(-1)];
+    const { move, reset } = query;
+    if (reset === 'true') {
+      game = {
+        deck: shuffle([...deck]),
+        discard: null,
+        players: [
+          { hand: dealHand(), ruler: null },
+          { hand: dealHand(), ruler: null }
+        ],
+        turn: 0,
+        phase: 'setup',
+        status: 'Pick your ruler!'
+      };
+    } else if (move === 'draw') {
+      game.players[0].hand.push(...game.deck.splice(0, 2));
+      game.turn = 1;
+      aiMove();
+    } else if (move) {
+      const cardStrings = move.split(','); // e.g., "5H" or "5H,5D"
+      const cards = cardStrings.map(cs => {
+        const [rank, suitChar] = [cs.slice(0, -1), cs.slice(-1)];
         const suit = suits.find(s => s[0] === suitChar);
-        if (!suit || !ranks.includes(rank)) {
-          game.status = 'Invalid ruler! Use format like 5H.';
+        return suit && ranks.includes(rank) ? { rank, suit } : null;
+      }).filter(c => c);
+
+      if (cards.length === 0) {
+        game.status = 'Invalid selection!';
+      } else if (game.phase === 'setup') {
+        if (cards.length !== 1) {
+          game.status = 'Pick one ruler!';
         } else {
-          const card = { rank, suit };
-          const idx = game.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+          const idx = game.players[0].hand.findIndex(c => c.rank === cards[0].rank && c.suit === cards[0].suit);
           if (idx === -1) {
             game.status = 'Ruler not in hand!';
           } else {
@@ -80,40 +98,24 @@ export default async function handler(req, res) {
             game.status = 'Play a card!';
           }
         }
-      }
-      console.log('After ruler pick:', game.players[0].hand);
-    } else if (game.phase === 'play') {
-      if (move === 'draw') {
-        game.players[0].hand.push(...game.deck.splice(0, 2));
-        game.turn = 1;
-        aiMove();
-      } else {
-        if (!move || move.length < 2) {
-          game.status = 'Enter a card like 5H!';
+      } else if (game.phase === 'play') {
+        const indices = cards.map(card => game.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit));
+        if (indices.some(i => i === -1) || !isValidPlay(cards, game.discard)) {
+          game.status = 'Invalid play!';
         } else {
-          const [rank, suitChar] = [move.slice(0, -1), move.slice(-1)];
-          const suit = suits.find(s => s[0] === suitChar);
-          if (!suit || !ranks.includes(rank)) {
-            game.status = 'Invalid card! Use format like 5H.';
-          } else {
-            const card = { rank, suit };
-            const idx = game.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
-            if (idx === -1 || !isValidPlay(card, game.discard)) {
-              game.status = 'Invalid play!';
-            } else {
-              game.discard = game.players[0].hand.splice(idx, 1)[0];
-              game.turn = 1;
-              aiMove();
-            }
-          }
+          indices.sort((a, b) => b - a).forEach(i => game.players[0].hand.splice(i, 1));
+          game.discard = cards[0]; // For now, only use first card as discard
+          game.turn = 1;
+          aiMove();
         }
       }
+      console.log('After move:', game.players[0].hand);
     }
   }
 
   function aiMove() {
     const ai = game.players[1];
-    const idx = ai.hand.findIndex(c => isValidPlay(c, game.discard));
+    const idx = ai.hand.findIndex(c => isValidPlay([c], game.discard));
     if (idx !== -1) {
       game.discard = ai.hand.splice(idx, 1)[0];
       game.status = 'AI played. Your turn!';
@@ -124,10 +126,8 @@ export default async function handler(req, res) {
     game.turn = 0;
   }
 
-  // Save state
   gameStates[sessionId] = game;
 
-  // Response
   res.status(200).json({
     discard: game.discard || { rank: 'N/A', suit: 'N/A' },
     playerHand: game.players[0].hand,
