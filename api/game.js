@@ -9,7 +9,6 @@ export default async function handler(req, res) {
   const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const deck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
 
-  // Reset or fetch state
   let game = gameStates[sessionId];
   if (!game) {
     console.log(`New session ${sessionId} - Initializing`);
@@ -23,7 +22,8 @@ export default async function handler(req, res) {
       turn: 0,
       phase: 'setup',
       status: 'Pick your ruler!',
-      moveHistory: []
+      moveHistory: [],
+      lastPlayCount: 1
     };
     gameStates[sessionId] = game;
   }
@@ -77,7 +77,6 @@ export default async function handler(req, res) {
     return false;
   }
 
-  // Deal hands if empty
   if (method === 'GET') {
     if (!game.players[0].hand || game.players[0].hand.length === 0) {
       console.log(`Dealing hands for ${sessionId}`);
@@ -101,7 +100,8 @@ export default async function handler(req, res) {
         turn: 0,
         phase: 'setup',
         status: 'Pick your ruler!',
-        moveHistory: []
+        moveHistory: [],
+        lastPlayCount: 1
       };
     } else if (move === 'draw') {
       game.players[0].hand.push(...game.deck.splice(0, 2));
@@ -131,6 +131,7 @@ export default async function handler(req, res) {
             game.phase = 'play';
             game.status = 'Play a card!';
             game.moveHistory = [`You set ruler ${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}`];
+            game.lastPlayCount = 1;
           }
         }
       } else if (game.phase === 'play') {
@@ -143,6 +144,7 @@ export default async function handler(req, res) {
           game.status = 'AI\'s turn!';
           game.moveHistory.unshift(`You played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
           if (game.moveHistory.length > 2) game.moveHistory.pop();
+          game.lastPlayCount = cards.length;
           game.turn = 1;
           aiMove();
         }
@@ -161,24 +163,37 @@ export default async function handler(req, res) {
 
   function aiMove() {
     const ai = game.players[1];
-    const idx = ai.hand.findIndex(c => isValidPlay([c], game.discard));
-    if (idx !== -1) {
-      game.discard = ai.hand.splice(idx, 1)[0];
-      game.status = 'Your turn!';
-      game.moveHistory.unshift(`AI played ${game.discard.rank}${game.discard.suit[0]}`);
-      if (game.moveHistory.length > 2) game.moveHistory.pop();
+    console.log(`AI turn - Last play count: ${game.lastPlayCount}`);
+
+    if (game.lastPlayCount === 1) {
+      const idx = ai.hand.findIndex(c => isValidPlay([c], game.discard));
+      if (idx !== -1) {
+        game.discard = ai.hand.splice(idx, 1)[0];
+        game.status = 'Your turn!';
+        game.moveHistory.unshift(`AI played ${game.discard.rank}${game.discard.suit[0]}`);
+        if (game.moveHistory.length > 2) game.moveHistory.pop();
+        game.lastPlayCount = 1;
+      } else {
+        game.players[1].hand.push(...game.deck.splice(0, 2));
+        game.status = 'AI drew 2. Your turn!';
+        game.moveHistory.unshift('AI drew 2');
+        if (game.moveHistory.length > 2) game.moveHistory.pop();
+      }
     } else {
-      ai.hand.push(...game.deck.splice(0, 2));
-      game.status = 'AI drew 2. Your turn!';
-      game.moveHistory.unshift('AI drew 2');
+      // Draw cards equal to player's last play count
+      const drawCount = game.lastPlayCount;
+      game.players[1].hand.push(...game.deck.splice(0, drawCount));
+      game.status = `AI drew ${drawCount}. Your turn!`;
+      game.moveHistory.unshift(`AI drew ${drawCount}`);
       if (game.moveHistory.length > 2) game.moveHistory.pop();
     }
-    game.turn = 0;
 
+    game.turn = 0;
     if (ai.hand.length === 0) {
       game.status = 'AI wins!';
       game.phase = 'over';
     }
+    console.log('AI hand after move:', ai.hand);
   }
 
   gameStates[sessionId] = game;
