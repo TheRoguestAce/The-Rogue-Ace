@@ -8,8 +8,9 @@ export default async function handler(req, res) {
   const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const deck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
 
-  // Initialize if new session
+  // Ensure state exists
   if (!gameStates[sessionId]) {
+    console.log(`New session: ${sessionId}`);
     gameStates[sessionId] = {
       deck: shuffle([...deck]),
       discard: null,
@@ -78,16 +79,22 @@ export default async function handler(req, res) {
     return false;
   }
 
-  // Deal hands on GET for new session
-  if (method === 'GET' && game.players[0].hand.length === 0) {
-    game.players[0].hand = dealHand();
-    game.players[1].hand = dealHand();
-    console.log('Initial player hand:', game.players[0].hand);
+  // Force deal on GET if hand is empty
+  if (method === 'GET') {
+    if (game.players[0].hand.length === 0) {
+      console.log(`Dealing hands for session: ${sessionId}`);
+      game.players[0].hand = dealHand();
+      game.players[1].hand = dealHand();
+      console.log('Player hand dealt:', game.players[0].hand);
+    } else {
+      console.log(`Existing hand for session ${sessionId}:`, game.players[0].hand);
+    }
   }
 
   if (method === 'POST') {
     const { move, reset } = query;
     if (reset === 'true') {
+      console.log(`Resetting session: ${sessionId}`);
       game = {
         deck: shuffle([...deck]),
         discard: null,
