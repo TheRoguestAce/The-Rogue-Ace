@@ -11,22 +11,22 @@ const rulerAbilities = {
     Clubs: 'Strike: Play 2 cards if 5+ in hand, counts as a pair'
   },
   ranks: {
-    2: 'Twice the Might: Pairs make AI draw double (4 instead of 2)',
-    3: 'Lucky Clover: Play a 7 anytime, AI draws 2',
-    4: 'Fourfold: Four of a kind reshuffles all cards, AI draws 7, you draw 3',
+    2: 'Twice the Might: Pairs make the opponent draw double (4 instead of 2)',
+    3: 'Lucky Clover: Play a 7 anytime, the opponent draws 2',
+    4: 'Fourfold: Four of a kind reshuffles all cards, the opponent draws 7, the player draws 3',
     5: 'High Five: Face cards count as 5 (pairs OK)',
-    6: 'Nightmare: Playing a 6 makes AI draw to 7 cards',
-    7: 'Lucky Spin: Play a 3 anytime, AI draws 2',
-    8: 'Seeing Red: If AI has ≤3 cards, 8 makes them draw 2',
-    9: 'Reverse Nightmare: AI’s 9s make you discard to 5 cards',
+    6: 'Nightmare: Playing a 6 makes the opponent draw to 7 cards',
+    7: 'Lucky Spin: Play a 3 anytime, the opponent draws 2',
+    8: 'Seeing Red: If the opponent has ≤3 cards, 8 makes them draw 2',
+    9: 'Reverse Nightmare: The opponent’s 9s make the player discard to 5 cards',
     10: 'Perfection: Play any number of even cards on an even card or empty pile (no pairs)',
     J: 'Servant: J/Q/K/A count as each other (pairs OK)',
-    Q: 'Ruler’s Touch: Kings are wild, make AI draw 1 (pairs OK)',
-    K: 'Ruler of Rulers: Inherits all rank abilities (2-Q), draw 5 on win to replay',
+    Q: 'Ruler’s Touch: Kings are wild, make the opponent draw 1 (pairs OK)',
+    K: 'Ruler of Rulers: Inherits all rank abilities (2-Q), the player draws 5 on win to replay',
     'A-Diamonds': 'Perfect Card: Odd non-face cards (A,3,5,7,9) playable anytime (no pairs)',
     'A-Hearts': 'Otherworldly Touch: Hearts are wild, others mimic this card (no pairs)',
     'A-Spades': 'Pocket Knife: All cards count as half rank, rounded down (pairs OK)',
-    'A-Clubs': 'Nuclear Bomb: First win reshuffles, others 7 cards, winner 5 (skips if you win first)'
+    'A-Clubs': 'Nuclear Bomb: First win reshuffles, others 7 cards, winner 5 (skips if the player wins first)'
   }
 };
 
@@ -93,7 +93,7 @@ function showRulerAbilities(player) {
   const suitAbility = rank === 'A' ? '' : `Suit: ${rulerAbilities.suits[suit]} | `;
   document.getElementById('ruler-abilities').style.display = 'block';
   document.getElementById('ruler-abilities').textContent = 
-    `${player === 'player' ? 'Your' : 'AI'} Ruler - ${suitAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
+    `${player === 'player' ? 'Player' : 'Opponent'} Ruler - ${suitAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
 }
 
 function playSelected() {
