@@ -8,18 +8,22 @@ export default async function handler(req, res) {
   const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const deck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
 
-  let game = gameStates[sessionId] || {
-    deck: shuffle([...deck]),
-    discard: null,
-    players: [
-      { hand: [], ruler: null },
-      { hand: [], ruler: null }
-    ],
-    turn: 0,
-    phase: 'setup',
-    status: 'Pick your ruler!',
-    moveHistory: [] // Track last two moves
-  };
+  // Initialize if new session
+  if (!gameStates[sessionId]) {
+    gameStates[sessionId] = {
+      deck: shuffle([...deck]),
+      discard: null,
+      players: [
+        { hand: [], ruler: null },
+        { hand: [], ruler: null }
+      ],
+      turn: 0,
+      phase: 'setup',
+      status: 'Pick your ruler!',
+      moveHistory: []
+    };
+  }
+  let game = gameStates[sessionId];
 
   function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -74,10 +78,11 @@ export default async function handler(req, res) {
     return false;
   }
 
-  if (method === 'GET' && !gameStates[sessionId]) {
+  // Deal hands on GET for new session
+  if (method === 'GET' && game.players[0].hand.length === 0) {
     game.players[0].hand = dealHand();
     game.players[1].hand = dealHand();
-    console.log('Player hand:', game.players[0].hand);
+    console.log('Initial player hand:', game.players[0].hand);
   }
 
   if (method === 'POST') {
