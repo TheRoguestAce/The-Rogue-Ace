@@ -1,21 +1,25 @@
+// In-memory store (resets on Vercel redeploy, fine for testing)
+const gameStates = {};
+
 export default async function handler(req, res) {
   const { method, query } = req;
+  const sessionId = query.session || 'default'; // Use query param for session
 
   // Constants
   const suits = ['Diamonds', 'Hearts', 'Spades', 'Clubs'];
   const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const deck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
 
-  // Initial state
-  let game = {
+  // Load or initialize state
+  let game = gameStates[sessionId] || {
     deck: shuffle([...deck]),
     discard: null,
     players: [
       { hand: [], ruler: null },
       { hand: [], ruler: null }
     ],
-    turn: 0, // 0 = player, 1 = AI
-    phase: 'setup', // 'setup' or 'play'
+    turn: 0,
+    phase: 'setup',
     status: 'Pick your ruler!'
   };
 
@@ -45,8 +49,8 @@ export default async function handler(req, res) {
     return isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value(card.rank) % 2 === value(top.rank) % 2;
   }
 
-  // Initialize
-  if (method === 'GET') {
+  // Initialize only if new session
+  if (method === 'GET' && !gameStates[sessionId]) {
     game.players[0].hand = dealHand();
     game.players[1].hand = dealHand();
     console.log('Player hand:', game.players[0].hand);
@@ -65,13 +69,11 @@ export default async function handler(req, res) {
           game.status = 'Invalid ruler! Use format like 5H.';
         } else {
           const card = { rank, suit };
-          const playerHand = [...game.players[0].hand]; // Copy to avoid direct mutation issues
-          const idx = playerHand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+          const idx = game.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
           if (idx === -1) {
             game.status = 'Ruler not in hand!';
           } else {
-            game.players[0].ruler = playerHand[idx];
-            game.players[0].hand = playerHand.filter((_, i) => i !== idx); // Remove only the chosen card
+            game.players[0].ruler = game.players[0].hand.splice(idx, 1)[0];
             game.players[1].ruler = game.players[1].hand.splice(Math.floor(Math.random() * game.players[1].hand.length), 1)[0];
             game.discard = game.deck.shift();
             game.phase = 'play';
@@ -95,13 +97,11 @@ export default async function handler(req, res) {
             game.status = 'Invalid card! Use format like 5H.';
           } else {
             const card = { rank, suit };
-            const playerHand = [...game.players[0].hand];
-            const idx = playerHand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+            const idx = game.players[0].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit);
             if (idx === -1 || !isValidPlay(card, game.discard)) {
               game.status = 'Invalid play!';
             } else {
-              game.discard = playerHand[idx];
-              game.players[0].hand = playerHand.filter((_, i) => i !== idx);
+              game.discard = game.players[0].hand.splice(idx, 1)[0];
               game.turn = 1;
               aiMove();
             }
@@ -124,6 +124,9 @@ export default async function handler(req, res) {
     game.turn = 0;
   }
 
+  // Save state
+  gameStates[sessionId] = game;
+
   // Response
   res.status(200).json({
     discard: game.discard || { rank: 'N/A', suit: 'N/A' },
@@ -132,6 +135,7 @@ export default async function handler(req, res) {
     playerRuler: game.players[0].ruler || { rank: 'N/A', suit: 'N/A' },
     aiRuler: game.players[1].ruler || { rank: 'N/A', suit: 'N/A' },
     status: game.status,
-    phase: game.phase
+    phase: game.phase,
+    session: sessionId
   });
 }
