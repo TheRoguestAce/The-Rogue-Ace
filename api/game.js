@@ -163,29 +163,32 @@ export default async function handler(req, res) {
 
   function aiMove() {
     const ai = game.players[1];
-    console.log(`AI turn - Last play count: ${game.lastPlayCount}`);
+    console.log(`AI turn - Last play count: ${game.lastPlayCount}, AI hand size: ${ai.hand.length}`);
 
-    if (game.lastPlayCount === 1) {
-      const idx = ai.hand.findIndex(c => isValidPlay([c], game.discard));
-      if (idx !== -1) {
-        game.discard = ai.hand.splice(idx, 1)[0];
-        game.status = 'Your turn!';
-        game.moveHistory.unshift(`AI played ${game.discard.rank}${game.discard.suit[0]}`);
-        if (game.moveHistory.length > 2) game.moveHistory.pop();
-        game.lastPlayCount = 1;
-      } else {
-        game.players[1].hand.push(...game.deck.splice(0, 2));
-        game.status = 'AI drew 2. Your turn!';
-        game.moveHistory.unshift('AI drew 2');
-        if (game.moveHistory.length > 2) game.moveHistory.pop();
-      }
-    } else {
-      // Draw cards equal to player's last play count
-      const drawCount = game.lastPlayCount;
+    // Draw based on player's last play count
+    if (game.lastPlayCount > 1 && game.deck.length > 0) {
+      const drawCount = Math.min(game.lastPlayCount, game.deck.length);
       game.players[1].hand.push(...game.deck.splice(0, drawCount));
-      game.status = `AI drew ${drawCount}. Your turn!`;
       game.moveHistory.unshift(`AI drew ${drawCount}`);
       if (game.moveHistory.length > 2) game.moveHistory.pop();
+      console.log(`AI drew ${drawCount}, new hand:`, ai.hand);
+    }
+
+    // Then try to play a single card
+    const idx = ai.hand.findIndex(c => isValidPlay([c], game.discard));
+    if (idx !== -1) {
+      game.discard = ai.hand.splice(idx, 1)[0];
+      game.status = 'Your turn!';
+      game.moveHistory.unshift(`AI played ${game.discard.rank}${game.discard.suit[0]}`);
+      if (game.moveHistory.length > 2) game.moveHistory.pop();
+      game.lastPlayCount = 1;
+    } else if (game.deck.length > 0) {
+      game.players[1].hand.push(...game.deck.splice(0, 2));
+      game.status = 'AI drew 2. Your turn!';
+      game.moveHistory.unshift('AI drew 2');
+      if (game.moveHistory.length > 2) game.moveHistory.pop();
+    } else {
+      game.status = 'AI can\'t play or draw. Your turn!';
     }
 
     game.turn = 0;
