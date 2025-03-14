@@ -39,7 +39,7 @@ function toggleCard(card) {
 function playSelected() {
   if (selectedCards.length === 0) return;
   const move = selectedCards.join(',');
-  selectedCards = [];
+  selectedCards = []; // Clear even if invalid
   fetchGame(move);
 }
 
