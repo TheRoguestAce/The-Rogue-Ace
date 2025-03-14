@@ -15,9 +15,6 @@ function updateDisplay(data) {
   document.getElementById('ai-ruler').textContent = `${data.aiRuler.rank}${data.aiRuler.suit[0]}`;
   document.getElementById('status').textContent = data.status;
   console.log('Hand size:', data.playerHand.length);
-  if (data.winner) {
-    alert(data.winner === 'player' ? 'You win!' : 'AI wins!');
-  }
 }
 
 function submitMove() {
