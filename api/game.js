@@ -3,20 +3,21 @@ const gameStates = {};
 export default async function handler(req, res) {
   const { method, query } = req;
   const sessionId = query.session || 'default';
+  console.log(`Request: ${method} for session: ${sessionId}`);
 
   const suits = ['Diamonds', 'Hearts', 'Spades', 'Clubs'];
   const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const deck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
 
-  // Ensure state exists
+  // Initialize state if missing
   if (!gameStates[sessionId]) {
-    console.log(`New session: ${sessionId}`);
+    console.log(`Initializing new state for session: ${sessionId}`);
     gameStates[sessionId] = {
       deck: shuffle([...deck]),
       discard: null,
       players: [
-        { hand: [], ruler: null },
-        { hand: [], ruler: null }
+        { hand: null, ruler: null }, // Use null to force check
+        { hand: null, ruler: null }
       ],
       turn: 0,
       phase: 'setup',
@@ -25,6 +26,7 @@ export default async function handler(req, res) {
     };
   }
   let game = gameStates[sessionId];
+  console.log(`Pre-deal state:`, JSON.stringify(game.players[0]));
 
   function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -79,16 +81,16 @@ export default async function handler(req, res) {
     return false;
   }
 
-  // Force deal on GET if hand is empty
+  // Ensure hands are dealt
+  if (!game.players[0].hand) {
+    console.log(`Dealing initial hands for session: ${sessionId}`);
+    game.players[0].hand = dealHand();
+    game.players[1].hand = dealHand();
+    console.log('Player hand after deal:', game.players[0].hand);
+  }
+
   if (method === 'GET') {
-    if (game.players[0].hand.length === 0) {
-      console.log(`Dealing hands for session: ${sessionId}`);
-      game.players[0].hand = dealHand();
-      game.players[1].hand = dealHand();
-      console.log('Player hand dealt:', game.players[0].hand);
-    } else {
-      console.log(`Existing hand for session ${sessionId}:`, game.players[0].hand);
-    }
+    console.log(`GET response prep - Player hand:`, game.players[0].hand);
   }
 
   if (method === 'POST') {
@@ -187,9 +189,9 @@ export default async function handler(req, res) {
 
   gameStates[sessionId] = game;
 
-  res.status(200).json({
+  const response = {
     discard: game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None',
-    playerHand: game.players[0].hand,
+    playerHand: game.players[0].hand || [],
     aiHandSize: game.players[1].hand.length,
     playerRuler: game.players[0].ruler ? `${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}` : 'None',
     aiRuler: game.players[1].ruler ? `${game.players[1].ruler.rank}${game.players[1].ruler.suit[0]}` : 'None',
@@ -197,5 +199,7 @@ export default async function handler(req, res) {
     phase: game.phase,
     session: sessionId,
     moveHistory: game.moveHistory
-  });
+  };
+  console.log('Response:', JSON.stringify(response));
+  res.status(200).json(response);
 }
