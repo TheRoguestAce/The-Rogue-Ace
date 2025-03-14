@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     console.log(`New session ${sessionId} - Initializing`);
     game = {
       deck: shuffle([...deck]),
-      discard: null, // Explicitly null, set later
+      discard: null,
       players: [
         { hand: [], ruler: null },
         { hand: [], ruler: null }
@@ -64,6 +64,7 @@ export default async function handler(req, res) {
       if (rulerRank === 'A' && rulerSuit === 'Diamonds' && cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0)) return true;
       if (rulerRank === '3' && cards.length === 1 && cards[0].rank === '7') return true;
       if (rulerRank === '7' && cards.length === 1 && cards[0].rank === '3') return true;
+      if (rulerRank === '10' && cards.every(c => isEven(c.rank))) return true; // Perfection: Any evens on empty
       return false;
     }
 
@@ -84,9 +85,14 @@ export default async function handler(req, res) {
       if (rulerRank === 'J' && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
       if (rulerRank === 'Q' && card.rank === 'K') matches = true;
       if (rulerSuit === 'Hearts' && rulerRank !== 'A') matches = value === rankValue(rulerRank);
-      if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = Math.ceil(value / 2) === topValue;
+      if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = Math.ceil(value / 2) - 1 === topValue; // Sliced: Divide by 2, round up, subtract 1
 
       return matches;
+    }
+
+    // Perfection: Any number of evens on an even top card
+    if (rulerRank === '10' && cards.every(c => isEven(c.rank)) && isEven(top.rank)) {
+      return true;
     }
 
     if (cards.length === 2 && rulerSuit === 'Clubs' && rulerRank !== 'A' && game.players[0].hand.length >= 5) {
@@ -94,7 +100,7 @@ export default async function handler(req, res) {
     }
 
     if (cards.length >= 2 && cards.length <= 4) {
-      return cards.every(c => c.rank === cards[0].rank);
+      return cards.every(c => c.rank === cards[0].rank); // Pairs/n-of-a-kind require same rank
     }
 
     if (cards.length === 5) {
@@ -129,7 +135,7 @@ export default async function handler(req, res) {
       console.log(`Player hand:`, game.players[0].hand);
     }
     if (!game.discard && game.deck.length > 0) {
-      game.discard = game.deck.shift(); // Ensure discard is set
+      game.discard = game.deck.shift();
       console.log(`Initial discard set: ${game.discard.rank}${game.discard.suit[0]}`);
     }
     game.canPlay = game.players[0].hand.some(card => isValidPlay([card], game.discard));
@@ -141,7 +147,7 @@ export default async function handler(req, res) {
       console.log(`Resetting ${sessionId}`);
       game = {
         deck: shuffle([...deck]),
-        discard: game.deck.length > 0 ? game.deck.shift() : null, // Set discard on reset
+        discard: game.deck.length > 0 ? game.deck.shift() : null,
         players: [
           { hand: dealHand(8), ruler: null },
           { hand: dealHand(8), ruler: null }
@@ -209,8 +215,9 @@ export default async function handler(req, res) {
           const allOdd = cards.every(c => rankValue(c.rank) % 2 !== 0);
           game.lastPlayType = cards.length === 1 ? 'single' :
                              (cards.length === 2 && playerRuler && playerRuler.suit === 'Clubs' && playerRuler.rank !== 'A' ? '2 of a kind' :
-                             (cards.length <= 4 ? `${cards.length} of a kind` :
-                             (isStraight ? 'straight' : isFlush ? 'flush' : allEven ? 'even only' : 'odd only')));
+                             (cards.length <= 4 && cards.every(c => c.rank === cards[0].rank) ? `${cards.length} of a kind` :
+                             (rulerRank === '10' && allEven ? 'even stack' : // Perfection play type
+                             (isStraight ? 'straight' : isFlush ? 'flush' : allEven ? 'even only' : 'odd only'))));
           game.lastPlayCount = cards.length;
 
           if (rulerRank === '3' && cards[0].rank === '7') {
@@ -381,7 +388,7 @@ export default async function handler(req, res) {
   gameStates[sessionId] = game;
 
   const response = {
-    discard: game.discard && game.discard.rank ? `${game.discard.rank}${game.discard.suit[0]}` : 'None', // Extra null check
+    discard: game.discard && game.discard.rank ? `${game.discard.rank}${game.discard.suit[0]}` : 'None',
     playerHand: game.players[0].hand || [],
     aiHandSize: game.players[1].hand.length || 0,
     playerRuler: game.players[0].ruler ? `${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}` : 'None',
