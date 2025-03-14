@@ -65,6 +65,7 @@ export default async function handler(req, res) {
       if (rulerRank === '3' && cards.length === 1 && cards[0].rank === '7') return true;
       if (rulerRank === '7' && cards.length === 1 && cards[0].rank === '3') return true;
       if (rulerRank === '10' && cards.every(c => isEven(c.rank))) return true;
+      if (cards.length >= 2 && cards.length <= 4 && cards.every(c => c.rank === cards[0].rank)) return true; // Pairs/n-of-a-kind on empty
       return false;
     }
 
@@ -74,6 +75,7 @@ export default async function handler(req, res) {
     if (cards.length === 1) {
       const card = cards[0];
       const value = rankValue(card.rank);
+      const slicedValue = card.suit === 'Spades' && rulerSuit === 'Spades' && rulerRank !== 'A' ? Math.ceil(value / 2) - 1 : null;
       let matches = isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value % 2 === topValue % 2;
 
       if (rulerRank === 'A' && rulerSuit === 'Diamonds' && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) matches = true;
@@ -85,7 +87,7 @@ export default async function handler(req, res) {
       if (rulerRank === 'J' && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
       if (rulerRank === 'Q' && card.rank === 'K') matches = true;
       if (rulerSuit === 'Hearts' && rulerRank !== 'A') matches = value === rankValue(rulerRank);
-      if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = Math.ceil(value / 2) - 1 === topValue;
+      if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue; // Sliced: both values
 
       return matches;
     }
@@ -98,8 +100,8 @@ export default async function handler(req, res) {
       return cards.every(c => isValidPlay([c], top));
     }
 
-    if (cars.length >= 2 && cards.length <= 4) {
-      return cards.every(c => c.rank === cards[0].rank);
+    if (cards.length >= 2 && cards.length <= 4) {
+      return cards.every(c => c.rank === cards[0].rank); // Pairs/n-of-a-kind
     }
 
     if (cards.length === 5) {
@@ -255,7 +257,6 @@ export default async function handler(req, res) {
           game.moveHistory.unshift(`The player played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
           if (game.moveHistory.length > 2) game.moveHistory.pop();
 
-          // Check win before opponent turn
           if (game.players[0].hand.length === 0) {
             game.status = 'The player wins!';
             game.phase = 'over';
@@ -407,7 +408,7 @@ export default async function handler(req, res) {
     playerHand: game.players[0].hand || [],
     aiHandSize: game.players[1].hand.length || 0,
     playerRuler: game.players[0].ruler ? `${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}` : 'None',
-    aiRuler: game.players[1].ruler ? `${game.players[1].ruler.rank}${game.players[1].ruler.suit[0]}` : 'None',
+    aiRuler: game	resource === '1'].ruler ? `${game.players[1].ruler.rank}${game.players[1].ruler.suit[0]}` : 'None',
     status: game.status || 'Error',
     phase: game.phase,
     session: sessionId,
