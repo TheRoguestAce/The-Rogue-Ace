@@ -1,6 +1,6 @@
 const gameStates = {};
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const { method, query } = req;
   const sessionId = query.session || 'default';
   console.log(`[${method}] Session: ${sessionId}`);
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
       if (rulerRank === '3' && cards.length === 1 && cards[0].rank === '7') return true;
       if (rulerRank === '7' && cards.length === 1 && cards[0].rank === '3') return true;
       if (rulerRank === '10' && cards.every(c => isEven(c.rank))) return true;
-      if (cards.length >= 2 && cards.length <= 4 && cards.every(c => c.rank === cards[0].rank)) return true; // Pairs/n-of-a-kind on empty
+      if (cards.length >= 2 && cards.length <= 4 && cards.every(c => c.rank === cards[0].rank)) return true;
       return false;
     }
 
@@ -87,7 +87,7 @@ export default async function handler(req, res) {
       if (rulerRank === 'J' && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
       if (rulerRank === 'Q' && card.rank === 'K') matches = true;
       if (rulerSuit === 'Hearts' && rulerRank !== 'A') matches = value === rankValue(rulerRank);
-      if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue; // Sliced: both values
+      if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue;
 
       return matches;
     }
@@ -101,7 +101,7 @@ export default async function handler(req, res) {
     }
 
     if (cards.length >= 2 && cards.length <= 4) {
-      return cards.every(c => c.rank === cards[0].rank); // Pairs/n-of-a-kind
+      return cards.every(c => c.rank === cards[0].rank);
     }
 
     if (cards.length === 5) {
@@ -408,7 +408,7 @@ export default async function handler(req, res) {
     playerHand: game.players[0].hand || [],
     aiHandSize: game.players[1].hand.length || 0,
     playerRuler: game.players[0].ruler ? `${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}` : 'None',
-    aiRuler: game	resource === '1'].ruler ? `${game.players[1].ruler.rank}${game.players[1].ruler.suit[0]}` : 'None',
+    aiRuler: game.players[1].ruler ? `${game.players[1].ruler.rank}${game.players[1].ruler.suit[0]}` : 'None',
     status: game.status || 'Error',
     phase: game.phase,
     session: sessionId,
@@ -418,3 +418,9 @@ export default async function handler(req, res) {
   console.log('Sending response:', JSON.stringify(response));
   res.status(200).json(response);
 }
+
+function aiMove() {
+  // Already defined inside handler, but Vercel doesn't care about duplicates here
+}
+
+module.exports = handler;
