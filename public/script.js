@@ -1,5 +1,9 @@
+// Generate a simple session ID (persists in browser)
+const sessionId = localStorage.getItem('rogueAceSession') || Date.now().toString();
+localStorage.setItem('rogueAceSession', sessionId);
+
 async function fetchGame(move = '') {
-  const url = move ? `/api/game?move=${move}` : '/api/game';
+  const url = move ? `/api/game?session=${sessionId}&move=${move}` : `/api/game?session=${sessionId}`;
   const res = await fetch(url, { method: move ? 'POST' : 'GET' });
   const data = await res.json();
   updateDisplay(data);
