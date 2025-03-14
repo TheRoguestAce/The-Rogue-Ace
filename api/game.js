@@ -64,7 +64,7 @@ export default async function handler(req, res) {
       if (rulerRank === 'A' && rulerSuit === 'Diamonds' && cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0)) return true;
       if (rulerRank === '3' && cards.length === 1 && cards[0].rank === '7') return true;
       if (rulerRank === '7' && cards.length === 1 && cards[0].rank === '3') return true;
-      if (rulerRank === '10' && cards.every(c => isEven(c.rank))) return true; // Perfection: Any evens on empty
+      if (rulerRank === '10' && cards.every(c => isEven(c.rank))) return true;
       return false;
     }
 
@@ -85,12 +85,11 @@ export default async function handler(req, res) {
       if (rulerRank === 'J' && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
       if (rulerRank === 'Q' && card.rank === 'K') matches = true;
       if (rulerSuit === 'Hearts' && rulerRank !== 'A') matches = value === rankValue(rulerRank);
-      if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = Math.ceil(value / 2) - 1 === topValue; // Sliced: Divide by 2, round up, subtract 1
+      if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') matches = Math.ceil(value / 2) - 1 === topValue;
 
       return matches;
     }
 
-    // Perfection: Any number of evens on an even top card
     if (rulerRank === '10' && cards.every(c => isEven(c.rank)) && isEven(top.rank)) {
       return true;
     }
@@ -100,7 +99,7 @@ export default async function handler(req, res) {
     }
 
     if (cards.length >= 2 && cards.length <= 4) {
-      return cards.every(c => c.rank === cards[0].rank); // Pairs/n-of-a-kind require same rank
+      return cards.every(c => c.rank === cards[0].rank);
     }
 
     if (cards.length === 5) {
@@ -216,13 +215,13 @@ export default async function handler(req, res) {
           game.lastPlayType = cards.length === 1 ? 'single' :
                              (cards.length === 2 && playerRuler && playerRuler.suit === 'Clubs' && playerRuler.rank !== 'A' ? '2 of a kind' :
                              (cards.length <= 4 && cards.every(c => c.rank === cards[0].rank) ? `${cards.length} of a kind` :
-                             (rulerRank === '10' && allEven ? 'even stack' : // Perfection play type
+                             (rulerRank === '10' && allEven ? 'even stack' :
                              (isStraight ? 'straight' : isFlush ? 'flush' : allEven ? 'even only' : 'odd only'))));
           game.lastPlayCount = cards.length;
 
           if (rulerRank === '3' && cards[0].rank === '7') {
             game.players[1].hand.push(...game.deck.splice(0, 2));
-            game.moveHistory.unshift('AI drew 2 (3 ruler)');
+            game.moveHistory.unshift('Opponent drew 2 (3 ruler)');
           }
           if (rulerRank === '4' && game.lastPlayType === '4 of a kind') {
             game.deck.push(...game.players[0].hand, ...game.players[1].hand);
@@ -231,27 +230,29 @@ export default async function handler(req, res) {
             shuffle(game.deck);
             game.players[0].hand = dealHand(3);
             game.players[1].hand = dealHand(7);
-            game.moveHistory.unshift('All cards reshuffled, you drew 3, AI drew 7 (4 ruler)');
+            game.moveHistory.unshift('All cards reshuffled, you drew 3, opponent drew 7 (4 ruler)');
           }
           if (rulerRank === '6' && cards[0].rank === '6') {
             const draw = Math.max(0, 7 - game.players[1].hand.length);
-            game.players[1].hand.push(...game.deck.splice(0, draw));
-            game.moveHistory.unshift(`AI drew ${draw} to 7 (6 ruler)`);
+            if (draw > 0) {
+              game.players[1].hand.push(...game.deck.splice(0, draw));
+              game.moveHistory.unshift(`Opponent drew ${draw} to 7 (6 ruler)`);
+            }
           }
           if (rulerRank === '7' && cards[0].rank === '3') {
             game.players[1].hand.push(...game.deck.splice(0, 2));
-            game.moveHistory.unshift('AI drew 2 (7 ruler)');
+            game.moveHistory.unshift('Opponent drew 2 (7 ruler)');
           }
           if (rulerRank === '8' && cards[0].rank === '8' && game.players[1].hand.length <= 3) {
             game.players[1].hand.push(...game.deck.splice(0, 2));
-            game.moveHistory.unshift('AI drew 2 (8 ruler)');
+            game.moveHistory.unshift('Opponent drew 2 (8 ruler)');
           }
           if (rulerRank === 'Q' && cards[0].rank === 'K') {
             game.players[1].hand.push(...game.deck.splice(0, 1));
-            game.moveHistory.unshift('AI drew 1 (Q ruler)');
+            game.moveHistory.unshift('Opponent drew 1 (Q ruler)');
           }
 
-          game.status = 'AI\'s turn!';
+          game.status = 'Opponent\'s turn!';
           game.moveHistory.unshift(`You played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
           if (game.moveHistory.length > 2) game.moveHistory.pop();
           game.turn = 1;
@@ -277,11 +278,11 @@ export default async function handler(req, res) {
         game.players[1].hand = dealHand(7);
         game.phase = 'play';
         game.status = 'Play a card! (AC ruler reset)';
-        game.moveHistory.unshift('Game reset, you drew 5, AI drew 7 (AC ruler)');
+        game.moveHistory.unshift('Game reset, you drew 5, opponent drew 7 (AC ruler)');
         game.firstWin = true;
       }
     } else if (game.players[1].hand.length === 0) {
-      game.status = 'AI wins!';
+      game.status = 'Opponent wins!';
       game.phase = 'over';
       if (game.players[1].ruler.rank === 'A' && game.players[1].ruler.suit === 'Clubs' && !game.firstWin) {
         game.deck = shuffle([...deck]);
@@ -289,7 +290,7 @@ export default async function handler(req, res) {
         game.players[1].hand = dealHand(5);
         game.phase = 'play';
         game.status = 'Play a card! (AC ruler reset)';
-        game.moveHistory.unshift('Game reset, you drew 7, AI drew 5 (AC ruler)');
+        game.moveHistory.unshift('Game reset, you drew 7, opponent drew 5 (AC ruler)');
         game.firstWin = true;
       }
     }
@@ -299,13 +300,13 @@ export default async function handler(req, res) {
   function aiMove() {
     const ai = game.players[1];
     const playerRuler = game.players[0].ruler;
-    console.log(`AI turn - Last play: ${game.lastPlayCount} (${game.lastPlayType}), AI hand size: ${ai.hand.length}`);
+    console.log(`Opponent turn - Last play: ${game.lastPlayCount} (${game.lastPlayType}), Opponent hand size: ${ai.hand.length}`);
 
     if (game.skipAITurn) {
       game.skipAITurn = false;
       game.status = 'Your turn!';
       game.turn = 0;
-      console.log('AI turn skipped');
+      console.log('Opponent turn skipped');
       return;
     }
 
@@ -316,23 +317,23 @@ export default async function handler(req, res) {
       if (playerRuler && playerRuler.rank === '2' && game.lastPlayType === '2 of a kind') drawCount *= 2;
       const actualDraw = Math.min(drawCount, game.deck.length);
       game.players[1].hand.push(...game.deck.splice(0, actualDraw));
-      game.moveHistory.unshift(`AI drew ${actualDraw} (caused by ${game.lastPlayType})`);
+      game.moveHistory.unshift(`Opponent drew ${actualDraw} (caused by ${game.lastPlayType})`);
       if (game.moveHistory.length > 2) game.moveHistory.pop();
-      console.log(`AI drew ${actualDraw}, new hand:`, ai.hand);
+      console.log(`Opponent drew ${actualDraw}, new hand:`, ai.hand);
     }
 
     if (game.players[1].ruler.rank === '9' && game.lastPlayCount === 1 && game.discard.rank === '9' && game.players[0].hand.length > 5) {
       const discardCount = game.players[0].hand.length - 5;
       game.deck.push(...game.players[0].hand.splice(0, discardCount));
       shuffle(game.deck);
-      game.moveHistory.unshift(`You discarded ${discardCount} to 5 (AI 9 ruler)`);
+      game.moveHistory.unshift(`You discarded ${discardCount} to 5 (Opponent 9 ruler)`);
     }
 
     const idx = ai.hand.findIndex(c => isValidPlay([c], game.discard));
     if (idx !== -1) {
       game.discard = ai.hand.splice(idx, 1)[0];
       game.status = 'Your turn!';
-      game.moveHistory.unshift(`AI played ${game.discard.rank}${game.discard.suit[0]}`);
+      game.moveHistory.unshift(`Opponent played ${game.discard.rank}${game.discard.suit[0]}`);
       if (game.moveHistory.length > 2) game.moveHistory.pop();
       game.lastPlayCount = 1;
       game.lastPlayType = 'single';
@@ -340,7 +341,7 @@ export default async function handler(req, res) {
       const aiRuler = game.players[1].ruler;
       if (aiRuler.rank === '3' && game.discard.rank === '7') {
         game.players[0].hand.push(...game.deck.splice(0, 2));
-        game.moveHistory.unshift('You drew 2 (AI 3 ruler)');
+        game.moveHistory.unshift('You drew 2 (Opponent 3 ruler)');
       }
       if (aiRuler.rank === '4' && game.lastPlayType === '4 of a kind') {
         game.deck.push(...game.players[0].hand, ...game.players[1].hand);
@@ -349,40 +350,42 @@ export default async function handler(req, res) {
         shuffle(game.deck);
         game.players[0].hand = dealHand(7);
         game.players[1].hand = dealHand(3);
-        game.moveHistory.unshift('All cards reshuffled, you drew 7, AI drew 3 (AI 4 ruler)');
+        game.moveHistory.unshift('All cards reshuffled, you drew 7, opponent drew 3 (Opponent 4 ruler)');
       }
       if (aiRuler.rank === '6' && game.discard.rank === '6') {
         const draw = Math.max(0, 7 - game.players[0].hand.length);
-        game.players[0].hand.push(...game.deck.splice(0, draw));
-        game.moveHistory.unshift(`You drew ${draw} to 7 (AI 6 ruler)`);
+        if (draw > 0) {
+          game.players[0].hand.push(...game.deck.splice(0, draw));
+          game.moveHistory.unshift(`You drew ${draw} to 7 (Opponent 6 ruler)`);
+        }
       }
       if (aiRuler.rank === '7' && game.discard.rank === '3') {
         game.players[0].hand.push(...game.deck.splice(0, 2));
-        game.moveHistory.unshift('You drew 2 (AI 7 ruler)');
+        game.moveHistory.unshift('You drew 2 (Opponent 7 ruler)');
       }
       if (aiRuler.rank === '8' && game.discard.rank === '8' && game.players[0].hand.length <= 3) {
         game.players[0].hand.push(...game.deck.splice(0, 2));
-        game.moveHistory.unshift('You drew 2 (AI 8 ruler)');
+        game.moveHistory.unshift('You drew 2 (Opponent 8 ruler)');
       }
       if (aiRuler.rank === 'Q' && game.discard.rank === 'K') {
         game.players[0].hand.push(...game.deck.splice(0, 1));
-        game.moveHistory.unshift('You drew 1 (AI Q ruler)');
+        game.moveHistory.unshift('You drew 1 (Opponent Q ruler)');
       }
     } else if (game.deck.length > 0) {
       game.players[1].hand.push(...game.deck.splice(0, 2));
       game.status = 'Your turn!';
-      game.moveHistory.unshift('AI drew 2');
+      game.moveHistory.unshift('Opponent drew 2');
       if (game.moveHistory.length > 2) game.moveHistory.pop();
     } else {
-      game.status = 'AI can\'t play or draw. Your turn!';
+      game.status = 'Opponent can\'t play or draw. Your turn!';
     }
 
     game.turn = 0;
     if (ai.hand.length === 0) {
-      game.status = 'AI wins!';
+      game.status = 'Opponent wins!';
       game.phase = 'over';
     }
-    console.log('AI hand after move:', ai.hand);
+    console.log('Opponent hand after move:', ai.hand);
   }
 
   gameStates[sessionId] = game;
