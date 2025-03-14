@@ -49,7 +49,6 @@ There are also some special combinations of cards that allow you to play multipl
 - **Flush:** You need at least a 4 card flush. Everyone else draws as many cards as the length of the flush minus 2.  
 - **Even Only:** You need 5 even cards minimum. Everyone else draws as many cards as the amount of even cards you used minus 3.  
 - **Odd Only:** Same rules as even only but odds only. Everyone else draws as many cards as the amount of odd cards you used minus 3.  
-- **Fibonacci Sequence:** Requires A, A, 2, 3, 5, and 8. Everyone else draws 5 cards and you put 2 cards back in the deck.  
 
 If you run out of cards and need to draw more, put the discard pile back into the deck and reshuffle. If a player cannot play any cards to match the card in the discard pile, they draw TWO cards.  
 
