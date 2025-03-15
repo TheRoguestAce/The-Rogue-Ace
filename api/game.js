@@ -116,15 +116,21 @@ async function handler(req, res) {
       return matches;
     }
 
+    // Pair must match discard unless special ruler conditions apply
+    if (isPair && top) {
+      const card = cards[0];
+      const value = rankValue(card.rank);
+      let matches = isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value % 2 === topValue % 2;
+      if ((rulerSuit === 'Clubs' || (rulerRank === 'K' && opponentSuit === 'Clubs')) && rulerRank !== 'A' && game.players[game.turn].hand.length >= 5) {
+        return cards.every(c => isValidPlay([c], top));
+      }
+      if ((rulerSuit === 'Diamonds' || (rulerRank === 'K' && opponentSuit === 'Diamonds')) && rulerRank !== 'A' && card.suit === 'Diamonds') {
+        return isValidPlay([card], top);
+      }
+      return matches;
+    }
+
     if ((rulerRank === '10' || (rulerRank === 'K' && opponentRank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank)) && isEven(top.rank)) return !isPair;
-
-    if (cards.length === 2 && (rulerSuit === 'Clubs' || (rulerRank === 'K' && opponentSuit === 'Clubs')) && rulerRank !== 'A' && game.players[0].hand.length >= 5 && isPair) {
-      return cards.every(c => isValidPlay([c], top));
-    }
-
-    if (cards.length === 2 && (rulerSuit === 'Diamonds' || (rulerRank === 'K' && opponentSuit === 'Diamonds')) && rulerRank !== 'A' && cards[0].suit === 'Diamonds') {
-      return !isPair && isValidPlay([cards[0]], top);
-    }
 
     if (cards.length >= 2 && cards.length <= 4) {
       return cards.every(c => c.rank === cards[0].rank);
@@ -192,7 +198,7 @@ async function handler(req, res) {
       console.log(`Reset discard: ${game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None'}`);
     } else if (move === 'draw') {
       game.players[0].hand.push(...game.deck.splice(0, game.fortActive ? 1 : 2));
-      game.moveHistory.unshift(`The player drew ${game.fortActive ? 1 : 2}`);
+      game.moveHistory.unshift(`The player drew ${game.fortActive ? 1 : 2}${game.fortActive ? ' (fort)' : ''}`);
       game.turn = 1;
       aiMove();
     } else if (move) {
@@ -230,6 +236,7 @@ async function handler(req, res) {
           game.status = 'Invalid play!';
         } else {
           indices.sort((a, b) => b - a).forEach(i => game.players[0].hand.splice(i, 1));
+          const oldDiscard = game.discard;
           game.discard = cards[0];
           const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
           const playerRuler = game.players[0].ruler;
@@ -259,14 +266,15 @@ async function handler(req, res) {
             switch (cards[0].rank) {
               case 'A': game.moveHistory.unshift('Pair A: Opponent must play 10+'); break;
               case '2': 
-                game.players[1].hand.push(...game.deck.splice(0, Math.min(3, game.deck.length)));
-                game.moveHistory.unshift('The opponent drew 3 (Pair Pair)');
+                const drawCount2 = Math.min(3, game.deck.length);
+                game.players[1].hand.push(...game.deck.splice(0, drawCount2));
+                game.moveHistory.unshift(`The opponent drew ${drawCount2} (Pair Pair)`);
                 break;
               case '3': game.moveHistory.unshift('Pair 3: Opponent must play odds'); break;
               case '4': game.moveHistory.unshift('Pair 4: Opponent cannot play 8+'); break;
               case '5':
-                if (game.discard.rank === '5') {
-                  game.players[0].hand.push(game.discard);
+                if (oldDiscard && oldDiscard.rank === '5') {
+                  game.players[0].hand.push(oldDiscard);
                   const discardIdx = Math.floor(Math.random() * game.deck.length);
                   if (game.deck.length > 0) game.players[0].hand.push(game.deck.splice(discardIdx, 1)[0]);
                   shuffle(game.deck);
@@ -312,22 +320,23 @@ async function handler(req, res) {
             }
           }
 
-          if (game.pairEffectOwner === 0 && game.turn === 0) {
-            game.pairEffect = null;
-            game.pairEffectOwner = null;
-            if (!game.fortActive) game.fortCard = null;
-          }
-
-          if (game.fortActive && game.turn === game.pairEffectOwner && isPair) {
-            game.moveHistory.unshift('Fort maintained');
-          } else if (game.fortActive && cards.length >= 2) {
+          if (game.fortActive && game.turn === game.pairEffectOwner) {
+            if (isPair) {
+              game.moveHistory.unshift('Fort maintained');
+            } else {
+              game.fortActive = false;
+              game.fortCard = null;
+              game.moveHistory.unshift('Fort destroyed (single play)');
+            }
+          } else if (game.fortActive && cards.length >= 2 && game.turn !== game.pairEffectOwner) {
             game.fortActive = false;
             game.fortCard = null;
             game.moveHistory.unshift('Fort destroyed');
-          } else if (game.fortActive && game.turn === game.pairEffectOwner) {
-            game.fortActive = false;
-            game.fortCard = null;
-            game.moveHistory.unshift('Fort auto-destroyed');
+          }
+
+          if (game.pairEffectOwner === 0 && game.turn === 0 && !game.fortActive) {
+            game.pairEffect = null;
+            game.pairEffectOwner = null;
           }
 
           if ((rulerRank === '3' || (rulerRank === 'K' && opponentRank === '3')) && cards[0].rank === '7') {
@@ -364,7 +373,7 @@ async function handler(req, res) {
           }
 
           game.moveHistory.unshift(`The player played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
-          if (game.moveHistory.length > 2) game.moveHistory.pop();
+          if (game.moveHistory.length > 3) game.moveHistory.pop(); // Increased to 3 to preserve pair effect messages
 
           if (game.players[0].hand.length === 0) {
             game.status = 'The player wins!';
@@ -428,22 +437,24 @@ async function handler(req, res) {
       let drawCount = (game.lastPlayType === 'even only' || game.lastPlayType === 'odd only') ? 
                      Math.max(0, game.lastPlayCount - 3) : 
                      (game.lastPlayCount > 4 ? Math.max(0, game.lastPlayCount - 2) : game.lastPlayCount);
-      if (playerRuler && playerRuler.rank === '2' && game.lastPlayType === 'pair') drawCount = 3; // Pair 2 override
+      if (playerRuler && playerRuler.rank === '2' && game.lastPlayType === 'pair') drawCount = 3;
       if (game.lastPlayType === 'multi') drawCount = game.lastPlayCount;
       const actualDraw = Math.min(drawCount, game.deck.length);
       if (actualDraw > 0) {
         game.players[1].hand.push(...game.deck.splice(0, actualDraw));
         game.moveHistory.unshift(`The opponent drew ${actualDraw} (${game.lastPlayType === 'pair' && playerRuler.rank === '2' ? 'Pair Pair' : game.lastPlayType})`);
-        if (game.moveHistory.length > 2) game.moveHistory.pop();
+        if (game.moveHistory.length > 3) game.moveHistory.pop();
         console.log(`Opponent drew ${actualDraw}, new hand:`, ai.hand);
       }
     }
 
-    if (game.fortActive && game.deck.length > 0) {
-      const pairIdx = ai.hand.findIndex((c, i) => i < ai.hand.length - 1 && ai.hand[i + 1].rank === c.rank);
+    if (game.fortActive && game.turn === 1 && game.pairEffectOwner !== 1 && game.deck.length > 0) {
+      const pairIdx = ai.hand.findIndex((c, i) => i < ai.hand.length - 1 && ai.hand[i + 1].rank === c.rank && isValidPlay([c, ai.hand[i + 1]], game.discard));
       if (pairIdx === -1) {
         game.players[1].hand.push(...game.deck.splice(0, 1));
-        game.moveHistory.unshift('The opponent drew 1 (fort active)');
+        game.moveHistory.unshift('The opponent drew 1 (fort)');
+        if (game.moveHistory.length > 3) game.moveHistory.pop();
+        game.status = 'The player\'s turn!';
         game.turn = 0;
         return;
       }
@@ -453,6 +464,7 @@ async function handler(req, res) {
     if (pairIdx !== -1) {
       const cards = [ai.hand[pairIdx], ai.hand[pairIdx + 1]];
       ai.hand.splice(pairIdx, 2);
+      const oldDiscard = game.discard;
       game.discard = cards[0];
       game.lastPlayCount = 2;
       game.lastPlayType = 'pair';
@@ -462,8 +474,9 @@ async function handler(req, res) {
         game.pairEffectOwner = 1;
         game.moveHistory.unshift('Pair A: Player must play 10+');
       } else if (cards[0].rank === '2') {
-        game.players[0].hand.push(...game.deck.splice(0, Math.min(3, game.deck.length)));
-        game.moveHistory.unshift('The player drew 3 (Pair Pair)');
+        const drawCount2 = Math.min(3, game.deck.length);
+        game.players[0].hand.push(...game.deck.splice(0, drawCount2));
+        game.moveHistory.unshift(`The player drew ${drawCount2} (Pair Pair)`);
       } else if (cards[0].rank === '3') {
         game.pairEffect = '3';
         game.pairEffectOwner = 1;
@@ -473,8 +486,8 @@ async function handler(req, res) {
         game.pairEffectOwner = 1;
         game.moveHistory.unshift('Pair 4: Player cannot play 8+');
       } else if (cards[0].rank === '5') {
-        if (game.discard.rank === '5') {
-          game.players[1].hand.push(game.discard);
+        if (oldDiscard && oldDiscard.rank === '5') {
+          game.players[1].hand.push(oldDiscard);
           const discardIdx = Math.floor(Math.random() * game.deck.length);
           if (game.deck.length > 0) game.players[1].hand.push(game.deck.splice(discardIdx, 1)[0]);
           shuffle(game.deck);
@@ -532,7 +545,7 @@ async function handler(req, res) {
       }
 
       game.moveHistory.unshift(`The opponent played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
-      if (game.moveHistory.length > 2) game.moveHistory.pop();
+      if (game.moveHistory.length > 3) game.moveHistory.pop();
     } else {
       const idx = ai.hand.findIndex(c => isValidPlay([c], game.discard));
       if (idx !== -1) {
@@ -540,20 +553,19 @@ async function handler(req, res) {
         game.lastPlayCount = 1;
         game.lastPlayType = 'single';
         game.moveHistory.unshift(`The opponent played ${game.discard.rank}${game.discard.suit[0]}`);
-        if (game.moveHistory.length > 2) game.moveHistory.pop();
-      } else if (game.deck.length > 0) {
-        game.players[1].hand.push(...game.deck.splice(0, game.fortActive ? 1 : 2));
-        game.moveHistory.unshift(`The opponent drew ${game.fortActive ? 1 : 2}`);
-        if (game.moveHistory.length > 2) game.moveHistory.pop();
-      } else {
+        if (game.moveHistory.length > 3) game.moveHistory.pop();
+      } else if (game.deck.length > 0 && !game.fortActive) {
+        game.players[1].hand.push(...game.deck.splice(0, 2));
+        game.moveHistory.unshift(`The opponent drew 2`);
+        if (game.moveHistory.length > 3) game.moveHistory.pop();
+      } else if (!game.fortActive) {
         game.status = 'The opponent can\'t play or draw. The player\'s turn!';
       }
     }
 
-    if (game.pairEffectOwner === 1 && game.turn === 1) {
+    if (game.pairEffectOwner === 1 && game.turn === 1 && !game.fortActive) {
       game.pairEffect = null;
       game.pairEffectOwner = null;
-      if (!game.fortActive) game.fortCard = null;
     }
 
     game.status = 'The player\'s turn!';
