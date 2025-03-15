@@ -209,7 +209,7 @@ async function handler(req, res) {
           const playerRuler = game.players[0].ruler;
           const rulerRank = playerRuler ? playerRuler.rank : null;
           const opponentRuler = game.players[1].ruler;
-          const opponentRank = opponentRuler ? opponentRuler.rank : null;
+          const opponentRank = opponentRuler ? opponentRank.rank : null;
 
           const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
           const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || 
@@ -326,7 +326,7 @@ async function handler(req, res) {
                      Math.max(0, game.lastPlayCount - 3) : 
                      (game.lastPlayCount > 4 ? Math.max(0, game.lastPlayCount - 2) : game.lastPlayCount);
       if (playerRuler && playerRuler.rank === '2' && game.lastPlayType === '2 of a kind') drawCount *= 2;
-      if (game.lastPlayType === 'multi') drawCount = game.lastPlayCount; // Generic multi-card play
+      if (game.lastPlayType === 'multi') drawCount = game.lastPlayCount;
       const actualDraw = Math.min(drawCount, game.deck.length);
       if (actualDraw > 0) {
         game.players[1].hand.push(...game.deck.splice(0, actualDraw));
@@ -336,7 +336,7 @@ async function handler(req, res) {
       }
     }
 
-    if (game.players[ studia1].ruler.rank === '9' && game.lastPlayCount === 1 && game.discard.rank === '9' && game.players[0].hand.length > 5) {
+    if (game.players[1].ruler.rank === '9' && game.lastPlayCount === 1 && game.discard.rank === '9' && game.players[0].hand.length > 5) {
       const discardCount = game.players[0].hand.length - 5;
       game.deck.push(...game.players[0].hand.splice(0, discardCount));
       shuffle(game.deck);
