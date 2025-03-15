@@ -56,6 +56,26 @@ async function handler(req, res) {
     return hand;
   }
 
+  function getActiveEffectName() {
+    if (!game.pairEffect || game.turn === game.pairEffectOwner) return '';
+    switch (game.pairEffect) {
+      case 'A': return 'Ace High';
+      case '2': return 'Pair Pair';
+      case '3': return 'Odd Job';
+      case '4': return 'Low Life';
+      case '5': return 'Feeling Off';
+      case '6': return 'Skip It';
+      case '7': return 'Switch Up';
+      case '8': return 'Discard Twist';
+      case '9': return 'Fortified';
+      case '10': return 'Even Steven';
+      case 'J': return 'Jack Up';
+      case 'Q': return 'Queen\'s Trade';
+      case 'K': return 'King\'s Rule';
+      default: return '';
+    }
+  }
+
   function isValidPlay(cards, top) {
     if (cards.length === 0) return false;
     const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
@@ -116,17 +136,16 @@ async function handler(req, res) {
       return matches;
     }
 
-    // Pair validation: BOTH cards must be individually playable
-    if (isPair && top) {
+    if (cards.length === 2 && cards[0].rank === cards[1].rank && top) {
       const validSingle = cards.every(card => isValidPlay([card], top));
-      if (!validSingle) return false; // Both must match discard independently
+      if (!validSingle) return false;
       const rulerValue = (rulerSuit === 'Hearts' || (rulerRank === 'K' && opponentSuit === 'Hearts')) && rulerRank !== 'A' ? rankValue(rulerRank === 'K' ? opponentRank : rulerRank) : null;
       if ((rulerSuit === 'Clubs' || (rulerRank === 'K' && opponentSuit === 'Clubs')) && rulerRank !== 'A' && game.players[game.turn].hand.length >= 5) return true;
       if ((rulerSuit === 'Diamonds' || (rulerRank === 'K' && opponentSuit === 'Diamonds')) && rulerRank !== 'A' && cards[0].suit === 'Diamonds') return isValidPlay([cards[0]], top);
-      return true; // If both are valid, pair is allowed
+      return true;
     }
 
-    if ((rulerRank === '10' || (rulerRank === 'K' && opponentRank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank)) && isEven(top.rank)) return !isPair;
+    if ((rulerRank === '10' || (rulerRank === 'K' && opponentRank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank)) && isEven(top.rank)) return cards.length !== 2 || cards[0].rank !== cards[1].rank;
 
     if (cards.length >= 2 && cards.length <= 4) {
       return cards.every(c => c.rank === cards[0].rank);
@@ -272,11 +291,13 @@ async function handler(req, res) {
               case '5':
                 if (oldDiscard && oldDiscard.rank === '5') {
                   game.players[0].hand.push(oldDiscard);
-                  const discardIdx = Math.floor(Math.random() * game.deck.length);
-                  if (game.deck.length > 0) game.players[0].hand.push(game.deck.splice(discardIdx, 1)[0]);
+                  const drawIdx = game.deck.length > 0 ? Math.floor(Math.random() * game.deck.length) : -1;
+                  if (drawIdx >= 0) game.players[0].hand.push(game.deck.splice(drawIdx, 1)[0]);
                   shuffle(game.deck);
                   game.discard = cards[0];
                   pairEffectMessage = 'Pair 5: Took 5 and a card from discard';
+                } else {
+                  pairEffectMessage = 'Pair 5: No 5 in discard to take';
                 }
                 break;
               case '6': 
@@ -370,7 +391,9 @@ async function handler(req, res) {
             game.moveHistory.unshift('The opponent drew 1 (Q ruler)');
           }
 
-          game.moveHistory.unshift(`The player played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
+          const effectName = getActiveEffectName();
+          const playMessage = `The player played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}${effectName ? ` (${effectName})` : ''}`;
+          game.moveHistory.unshift(playMessage);
           if (game.moveHistory.length > 3) game.moveHistory.pop();
 
           if (game.players[0].hand.length === 0) {
@@ -487,11 +510,13 @@ async function handler(req, res) {
       } else if (cards[0].rank === '5') {
         if (oldDiscard && oldDiscard.rank === '5') {
           game.players[1].hand.push(oldDiscard);
-          const discardIdx = Math.floor(Math.random() * game.deck.length);
-          if (game.deck.length > 0) game.players[1].hand.push(game.deck.splice(discardIdx, 1)[0]);
+          const drawIdx = game.deck.length > 0 ? Math.floor(Math.random() * game.deck.length) : -1;
+          if (drawIdx >= 0) game.players[1].hand.push(game.deck.splice(drawIdx, 1)[0]);
           shuffle(game.deck);
           game.discard = cards[0];
           pairEffectMessage = 'Pair 5: Took 5 and a card from discard';
+        } else {
+          pairEffectMessage = 'Pair 5: No 5 in discard to take';
         }
       } else if (cards[0].rank === '6') {
         game.skipAITurn = true;
@@ -545,7 +570,9 @@ async function handler(req, res) {
         game.moveHistory.unshift('Fort destroyed');
       }
 
-      game.moveHistory.unshift(`The opponent played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
+      const effectName = getActiveEffectName();
+      const playMessage = `The opponent played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}${effectName ? ` (${effectName})` : ''}`;
+      game.moveHistory.unshift(playMessage);
       if (game.moveHistory.length > 3) game.moveHistory.pop();
     } else {
       const idx = ai.hand.findIndex(c => isValidPlay([c], game.discard));
@@ -553,7 +580,9 @@ async function handler(req, res) {
         game.discard = ai.hand.splice(idx, 1)[0];
         game.lastPlayCount = 1;
         game.lastPlayType = 'single';
-        game.moveHistory.unshift(`The opponent played ${game.discard.rank}${game.discard.suit[0]}`);
+        const effectName = getActiveEffectName();
+        const playMessage = `The opponent played ${game.discard.rank}${game.discard.suit[0]}${effectName ? ` (${effectName})` : ''}`;
+        game.moveHistory.unshift(playMessage);
         if (game.moveHistory.length > 3) game.moveHistory.pop();
       } else if (game.deck.length > 0 && !game.fortActive) {
         game.players[1].hand.push(...game.deck.splice(0, 2));
