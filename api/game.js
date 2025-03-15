@@ -28,10 +28,10 @@ async function handler(req, res) {
       skipAITurn: false,
       firstWin: false,
       canPlay: true,
-      pairEffect: null, // Tracks active pair effect
-      pairEffectOwner: null, // 0 = player, 1 = AI
-      fortActive: false, // For 9's Fort
-      fortCard: null // Top card of fort
+      pairEffect: null,
+      pairEffectOwner: null,
+      fortActive: false,
+      fortCard: null
     };
     gameStates[sessionId] = game;
   }
@@ -70,12 +70,10 @@ async function handler(req, res) {
     const topValue = top ? rankValue(top.rank) : 0;
     const isRed = s => ['Diamonds', 'Hearts'].includes(s);
 
-    // Fort rules for 9
     if (game.fortActive && game.turn !== game.pairEffectOwner) {
-      if (!isPair && cards.length < 2) return false; // Must play pair or better to destroy fort
+      if (!isPair && cards.length < 2) return false;
     }
 
-    // Pair effect restrictions
     if (game.pairEffect && game.turn !== game.pairEffectOwner) {
       const value = rankValue(cards[0].rank);
       if (game.pairEffect === 'A') return value >= 10;
@@ -255,7 +253,6 @@ async function handler(req, res) {
                              (cards.length === 5 && allOdd ? 'odd only' : 'multi')))))));
           game.lastPlayCount = cards.length;
 
-          // Handle pair effects
           if (isPair) {
             game.pairEffect = cards[0].rank;
             game.pairEffectOwner = 0;
@@ -263,7 +260,7 @@ async function handler(req, res) {
               case 'A': game.moveHistory.unshift('Pair A: Opponent must play 10+'); break;
               case '2': 
                 game.players[1].hand.push(...game.deck.splice(0, Math.min(3, game.deck.length)));
-                game.moveHistory.unshift('Pair 2: Opponent drew 3');
+                game.moveHistory.unshift('The opponent drew 3 (Pair Pair)');
                 break;
               case '3': game.moveHistory.unshift('Pair 3: Opponent must play odds'); break;
               case '4': game.moveHistory.unshift('Pair 4: Opponent cannot play 8+'); break;
@@ -315,14 +312,12 @@ async function handler(req, res) {
             }
           }
 
-          // Clear pair effect if player plays again
           if (game.pairEffectOwner === 0 && game.turn === 0) {
             game.pairEffect = null;
             game.pairEffectOwner = null;
             if (!game.fortActive) game.fortCard = null;
           }
 
-          // Fort maintenance
           if (game.fortActive && game.turn === game.pairEffectOwner && isPair) {
             game.moveHistory.unshift('Fort maintained');
           } else if (game.fortActive && cards.length >= 2) {
@@ -335,7 +330,6 @@ async function handler(req, res) {
             game.moveHistory.unshift('Fort auto-destroyed');
           }
 
-          // Existing ruler effects
           if ((rulerRank === '3' || (rulerRank === 'K' && opponentRank === '3')) && cards[0].rank === '7') {
             game.players[1].hand.push(...game.deck.splice(0, 2));
             game.moveHistory.unshift('The opponent drew 2 (3 ruler)');
@@ -439,7 +433,7 @@ async function handler(req, res) {
       const actualDraw = Math.min(drawCount, game.deck.length);
       if (actualDraw > 0) {
         game.players[1].hand.push(...game.deck.splice(0, actualDraw));
-        game.moveHistory.unshift(`The opponent drew ${actualDraw} (caused by ${game.lastPlayType})`);
+        game.moveHistory.unshift(`The opponent drew ${actualDraw} (${game.lastPlayType === 'pair' && playerRuler.rank === '2' ? 'Pair Pair' : game.lastPlayType})`);
         if (game.moveHistory.length > 2) game.moveHistory.pop();
         console.log(`Opponent drew ${actualDraw}, new hand:`, ai.hand);
       }
@@ -463,14 +457,13 @@ async function handler(req, res) {
       game.lastPlayCount = 2;
       game.lastPlayType = 'pair';
 
-      // AI pair effects
       if (cards[0].rank === 'A') {
         game.pairEffect = 'A';
         game.pairEffectOwner = 1;
         game.moveHistory.unshift('Pair A: Player must play 10+');
       } else if (cards[0].rank === '2') {
         game.players[0].hand.push(...game.deck.splice(0, Math.min(3, game.deck.length)));
-        game.moveHistory.unshift('Pair 2: Player drew 3');
+        game.moveHistory.unshift('The player drew 3 (Pair Pair)');
       } else if (cards[0].rank === '3') {
         game.pairEffect = '3';
         game.pairEffectOwner = 1;
@@ -530,7 +523,6 @@ async function handler(req, res) {
         game.moveHistory.unshift('Pair K: Player alternates even/odd');
       }
 
-      // Fort maintenance for AI
       if (game.fortActive && game.turn === game.pairEffectOwner) {
         game.moveHistory.unshift('Fort maintained');
       } else if (game.fortActive) {
