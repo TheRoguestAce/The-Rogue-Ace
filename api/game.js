@@ -31,7 +31,8 @@ async function handler(req, res) {
       pairEffect: null,
       pairEffectOwner: null,
       fortActive: false,
-      fortCard: null
+      fortCard: null,
+      extraTurn: false
     };
     gameStates[sessionId] = game;
   }
@@ -91,16 +92,16 @@ async function handler(req, res) {
     const isRed = s => ['Diamonds', 'Hearts'].includes(s);
 
     if (game.fortActive && game.turn !== game.pairEffectOwner) {
-      if (!isPair && cards.length < 2) return false;
+      if (!isPair && cards.length < 2) return false; // Only pairs or multi-card allowed
     }
 
     if (game.pairEffect && game.turn !== game.pairEffectOwner) {
       const value = rankValue(cards[0].rank);
-      if (game.pairEffect === 'A') return value >= 10;
-      if (game.pairEffect === '3') return value % 2 !== 0;
-      if (game.pairEffect === '4') return value < 8;
-      if (game.pairEffect === '10') return value % 2 === 0;
-      if (game.pairEffect === 'J') return value >= 8;
+      if (game.pairEffect === 'A' && value < 10) return false;
+      if (game.pairEffect === '3' && value % 2 === 0) return false;
+      if (game.pairEffect === '4' && value >= 8) return false;
+      if (game.pairEffect === '10' && value % 2 !== 0) return false;
+      if (game.pairEffect === 'J' && value < 8) return false;
       if (game.pairEffect === 'K') {
         const lastWasEven = game.moveHistory.length > 0 && rankValue(game.discard.rank) % 2 === 0;
         return lastWasEven ? value % 2 !== 0 : value % 2 === 0;
@@ -208,7 +209,8 @@ async function handler(req, res) {
         pairEffect: null,
         pairEffectOwner: null,
         fortActive: false,
-        fortCard: null
+        fortCard: null,
+        extraTurn: false
       };
       console.log(`Reset discard: ${game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None'}`);
     } else if (move === 'draw') {
@@ -266,7 +268,7 @@ async function handler(req, res) {
           const allEven = cards.every(c => rankValue(c.rank) % 2 === 0);
           const allOdd = cards.every(c => rankValue(c.rank) % 2 !== 0);
           game.lastPlayType = cards.length === 1 ? 'single' :
-                             (cards.length === 2 && playerRuler && playerRuler.suit === 'Clubs' && playerRuler.rank !== 'A' && isPair ? 'pair' :
+                             (isPair ? 'pair' :
                              (cards.length <= 4 && cards.every(c => c.rank === cards[0].rank) ? `${cards.length} of a kind` :
                              (rulerRank === '10' && allEven ? 'even stack' :
                              (isStraight ? 'straight' : 
@@ -305,20 +307,20 @@ async function handler(req, res) {
                 pairEffectMessage = 'Pair 6: Opponent skips next turn';
                 break;
               case '7':
-                if (game.deck.length >= 2) {
-                  const [card1, card2] = game.deck.slice(0, 2);
+                if (game.deck.length >= 1) { // Changed to >= 1
+                  const card1 = game.deck.shift();
                   const replaceIdx = Math.floor(Math.random() * game.players[0].hand.length);
-                  game.players[0].hand[replaceIdx] = card1;
-                  game.deck.splice(0, 2);
-                  game.deck.unshift(card2);
+                  game.deck.push(game.players[0].hand.splice(replaceIdx, 1)[0]);
+                  game.players[0].hand.push(card1);
                   shuffle(game.deck);
                   pairEffectMessage = 'Pair 7: Replaced a card';
+                } else {
+                  pairEffectMessage = 'Pair 7: No cards in deck to replace';
                 }
                 break;
               case '8':
-                const otherIdx = Math.floor(Math.random() * game.players[0].hand.length);
-                game.discard = game.players[0].hand.splice(otherIdx, 1)[0];
-                pairEffectMessage = `Pair 8: Set discard to ${game.discard.rank}${game.discard.suit[0]}`;
+                pairEffectMessage = 'Pair 8: Play again and set discard';
+                game.extraTurn = true; // Flag for extra turn
                 break;
               case '9':
                 game.fortActive = true;
@@ -340,12 +342,16 @@ async function handler(req, res) {
           }
 
           if (game.fortActive && game.turn === game.pairEffectOwner) {
-            if (isPair) {
+            if (cards.length === 1) {
+              game.fortActive = false;
+              game.fortCard = null;
+              game.moveHistory.unshift('Fort expired (single play)');
+            } else if (isPair) {
               game.moveHistory.unshift('Fort maintained');
             } else {
               game.fortActive = false;
               game.fortCard = null;
-              game.moveHistory.unshift('Fort destroyed (single play)');
+              game.moveHistory.unshift('Fort destroyed (multi play)');
             }
           } else if (game.fortActive && cards.length >= 2 && game.turn !== game.pairEffectOwner) {
             game.fortActive = false;
@@ -353,7 +359,7 @@ async function handler(req, res) {
             game.moveHistory.unshift('Fort destroyed');
           }
 
-          if (game.pairEffectOwner === 0 && game.turn === 0 && !game.fortActive) {
+          if (game.pairEffectOwner === 0 && game.turn === 0 && !game.fortActive && !isPair) {
             game.pairEffect = null;
             game.pairEffectOwner = null;
           }
@@ -415,6 +421,9 @@ async function handler(req, res) {
               game.moveHistory.unshift('Game reset, the player drew 5, the opponent drew 7 (AC ruler)');
               game.firstWin = true;
             }
+          } else if (game.extraTurn && cards[0].rank === '8' && isPair) {
+            game.status = 'Play again and set discard!';
+            game.extraTurn = false; // Reset after signaling
           } else {
             game.status = 'Opponent\'s turn!';
             game.turn = 1;
@@ -454,16 +463,16 @@ async function handler(req, res) {
       return;
     }
 
-    if (game.lastPlayCount > 1 && game.deck.length > 0 && !game.fortActive) {
+    if (game.lastPlayCount > 1 && game.deck.length > 0 && !game.fortActive && game.lastPlayType !== 'pair') {
       let drawCount = (game.lastPlayType === 'even only' || game.lastPlayType === 'odd only') ? 
                      Math.max(0, game.lastPlayCount - 3) : 
                      (game.lastPlayCount > 4 ? Math.max(0, game.lastPlayCount - 2) : game.lastPlayCount);
-      if (playerRuler && playerRuler.rank === '2' && game.lastPlayType === 'pair') drawCount = 3;
+      if (playerRuler && playerRuler.rank === '2' && game.lastPlayType === 'pair') drawCount = 0; // Handled in pair logic
       if (game.lastPlayType === 'multi') drawCount = game.lastPlayCount;
       const actualDraw = Math.min(drawCount, game.deck.length);
       if (actualDraw > 0) {
         game.players[1].hand.push(...game.deck.splice(0, actualDraw));
-        game.moveHistory.unshift(`The opponent drew ${actualDraw} (${game.lastPlayType === 'pair' && playerRuler.rank === '2' ? 'Pair Pair' : game.lastPlayType})`);
+        game.moveHistory.unshift(`The opponent drew ${actualDraw} (${game.lastPlayType})`);
         if (game.moveHistory.length > 3) game.moveHistory.pop();
         console.log(`Opponent drew ${actualDraw}, new hand:`, ai.hand);
       }
@@ -522,19 +531,21 @@ async function handler(req, res) {
         game.skipAITurn = true;
         pairEffectMessage = 'Pair 6: Player skips next turn';
       } else if (cards[0].rank === '7') {
-        if (game.deck.length >= 2) {
-          const [card1, card2] = game.deck.slice(0, 2);
+        if (game.deck.length >= 1) {
+          const card1 = game.deck.shift();
           const replaceIdx = Math.floor(Math.random() * game.players[1].hand.length);
-          game.players[1].hand[replaceIdx] = card1;
-          game.deck.splice(0, 2);
-          game.deck.unshift(card2);
+          game.deck.push(game.players[1].hand.splice(replaceIdx, 1)[0]);
+          game.players[1].hand.push(card1);
           shuffle(game.deck);
           pairEffectMessage = 'Pair 7: Replaced a card';
+        } else {
+          pairEffectMessage = 'Pair 7: No cards in deck to replace';
         }
       } else if (cards[0].rank === '8') {
         const otherIdx = Math.floor(Math.random() * game.players[1].hand.length);
         game.discard = game.players[1].hand.splice(otherIdx, 1)[0];
         pairEffectMessage = `Pair 8: Set discard to ${game.discard.rank}${game.discard.suit[0]}`;
+        game.extraTurn = true; // AI doesn’t use it, but for consistency
       } else if (cards[0].rank === '9') {
         game.fortActive = true;
         game.fortCard = cards[0];
@@ -593,7 +604,7 @@ async function handler(req, res) {
       }
     }
 
-    if (game.pairEffectOwner === 1 && game.turn === 1 && !game.fortActive) {
+    if (game.pairEffectOwner === 1 && game.turn === 1 && !game.fortActive && game.lastPlayType !== 'pair') {
       game.pairEffect = null;
       game.pairEffectOwner = null;
     }
