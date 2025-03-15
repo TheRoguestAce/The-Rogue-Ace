@@ -83,7 +83,7 @@ async function handler(req, res) {
       let matches = isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value % 2 === topValue % 2;
 
       if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Diamonds') && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) matches = true;
-      if ((rulerRank === 'A' && rulerSuit === 'Hearts') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Hearts') && card.suit === 'Hearts') matches = true;
+      if (((rulerRank === 'A' && rulerSuit === 'Hearts') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Hearts')) && card.suit === 'Hearts') matches = true;
       if ((rulerRank === 'A' && rulerSuit === 'Spades') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Spades')) matches = matches || Math.floor(value / 2) === topValue;
       if (rulerRank === 'A' && rulerSuit === 'Clubs') matches = Math.floor(value / 2) === topValue;
       if ((rulerRank === '5' || (rulerRank === 'K' && opponentRank === '5')) && ['J', 'Q', 'K'].includes(card.rank)) matches = topValue === 5;
@@ -209,7 +209,7 @@ async function handler(req, res) {
           const playerRuler = game.players[0].ruler;
           const rulerRank = playerRuler ? playerRuler.rank : null;
           const opponentRuler = game.players[1].ruler;
-          const opponentRank = opponentRuler ? opponentRank.rank : null;
+          const opponentRank = opponentRuler ? opponentRuler.rank : null;
 
           const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
           const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || 
