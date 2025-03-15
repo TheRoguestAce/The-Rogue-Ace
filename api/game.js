@@ -91,7 +91,7 @@ async function handler(req, res) {
       if ((rulerRank === 'J' || (rulerRank === 'K' && opponentRank === 'J')) && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
       if ((rulerRank === 'Q' || (rulerRank === 'K' && opponentRank === 'Q')) && card.rank === 'K') matches = true;
       if ((rulerSuit === 'Hearts' || (rulerRank === 'K' && opponentSuit === 'Hearts')) && rulerRank !== 'A') matches = matches || rulerValue === topValue || rulerValue % 2 === topValue % 2;
-      if ((rulerSuit === 'Spades' || (rulerRank === 'K' && opponentSuit === 'Spades')) && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue || slicedValue % 2 === topValue % 2; // Sliced: both
+      if ((rulerSuit === 'Spades' || (rulerRank === 'K' && opponentSuit === 'Spades')) && rulerRank !== 'A' && card.suit === 'Spades') matches = matches || slicedValue === topValue || slicedValue % 2 === topValue % 2;
       return matches;
     }
 
@@ -102,7 +102,7 @@ async function handler(req, res) {
     }
 
     if (cards.length === 2 && (rulerSuit === 'Diamonds' || (rulerRank === 'K' && opponentSuit === 'Diamonds')) && rulerRank !== 'A' && cards[0].suit === 'Diamonds') {
-      return isValidPlay([cards[0]], top); // Diamond Storm: any second card
+      return isValidPlay([cards[0]], top);
     }
 
     if (cards.length >= 2 && cards.length <= 4) {
@@ -221,7 +221,10 @@ async function handler(req, res) {
                              (cards.length === 2 && playerRuler && playerRuler.suit === 'Clubs' && playerRuler.rank !== 'A' ? '2 of a kind' :
                              (cards.length <= 4 && cards.every(c => c.rank === cards[0].rank) ? `${cards.length} of a kind` :
                              (rulerRank === '10' && allEven ? 'even stack' :
-                             (isStraight ? 'straight' : isFlush ? 'flush' : allEven ? 'even only' : 'odd only'))));
+                             (isStraight ? 'straight' : 
+                             (isFlush ? 'flush' : 
+                             (cards.length === 5 && allEven ? 'even only' : 
+                             (cards.length === 5 && allOdd ? 'odd only' : 'multi')))))));
           game.lastPlayCount = cards.length;
 
           if ((rulerRank === '3' || (rulerRank === 'K' && opponentRank === '3')) && cards[0].rank === '7') {
@@ -319,18 +322,21 @@ async function handler(req, res) {
     }
 
     if (game.lastPlayCount > 1 && game.deck.length > 0) {
-      let drawCount = game.lastPlayType === 'even only' || game.lastPlayType === 'odd only' ? 
+      let drawCount = (game.lastPlayType === 'even only' || game.lastPlayType === 'odd only') ? 
                      Math.max(0, game.lastPlayCount - 3) : 
                      (game.lastPlayCount > 4 ? Math.max(0, game.lastPlayCount - 2) : game.lastPlayCount);
       if (playerRuler && playerRuler.rank === '2' && game.lastPlayType === '2 of a kind') drawCount *= 2;
+      if (game.lastPlayType === 'multi') drawCount = game.lastPlayCount; // Generic multi-card play
       const actualDraw = Math.min(drawCount, game.deck.length);
-      game.players[1].hand.push(...game.deck.splice(0, actualDraw));
-      game.moveHistory.unshift(`The opponent drew ${actualDraw} (caused by ${game.lastPlayType})`);
-      if (game.moveHistory.length > 2) game.moveHistory.pop();
-      console.log(`Opponent drew ${actualDraw}, new hand:`, ai.hand);
+      if (actualDraw > 0) {
+        game.players[1].hand.push(...game.deck.splice(0, actualDraw));
+        game.moveHistory.unshift(`The opponent drew ${actualDraw} (caused by ${game.lastPlayType})`);
+        if (game.moveHistory.length > 2) game.moveHistory.pop();
+        console.log(`Opponent drew ${actualDraw}, new hand:`, ai.hand);
+      }
     }
 
-    if (game.players[1].ruler.rank === '9' && game.lastPlayCount === 1 && game.discard.rank === '9' && game.players[0].hand.length > 5) {
+    if (game.players[ studia1].ruler.rank === '9' && game.lastPlayCount === 1 && game.discard.rank === '9' && game.players[0].hand.length > 5) {
       const discardCount = game.players[0].hand.length - 5;
       game.deck.push(...game.players[0].hand.splice(0, discardCount));
       shuffle(game.deck);
