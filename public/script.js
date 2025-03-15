@@ -8,7 +8,7 @@ const rulerAbilities = {
     Diamonds: 'Diamond Storm: Play a diamond card + another card (not a pair)',
     Hearts: 'Campfire: Cards count as both their rank and this heart’s rank (no pairs)',
     Spades: 'Sliced: Spades count as both their rank and rank ÷ 2 rounded up - 1 (pairs OK)',
-    Clubs: 'Strike: Play 2 cards if 5+ in hand, counts as a pair'
+    Clubs: 'Strike: Play a pair if 5+ in hand'
   },
   ranks: {
     2: 'Twice the Might: Pairs make the opponent draw double (4 instead of 2)',
@@ -19,7 +19,7 @@ const rulerAbilities = {
     7: 'Lucky Spin: Play a 3 anytime, the opponent draws 2',
     8: 'Seeing Red: If the opponent has ≤3 cards, 8 makes them draw 2',
     9: 'Reverse Nightmare: The opponent’s 9s make the player discard to 5 cards',
-    10: 'Perfection: Play any number of even cards on an even card or empty pile (no pairs)',
+    10: 'Perfection: Play multiple even cards on an even card or empty pile (no pairs)',
     J: 'Servant: J/Q/K/A count as each other (pairs OK)',
     Q: 'Ruler’s Touch: Kings are wild cards, counting as every rank, make the opponent draw 1 (pairs OK)',
     K: 'Ruler of Rulers: Inherits all of the opponent’s ruler abilities, replay with 5 cards on first win',
@@ -27,6 +27,21 @@ const rulerAbilities = {
     'A-Hearts': 'Otherworldly Touch: Hearts are wild cards, counting as every rank, others mimic this card (no pairs)',
     'A-Spades': 'Pocket Knife: All cards count as both their rank and half rank rounded down (pairs OK)',
     'A-Clubs': 'Nuclear Bomb: First win reshuffles, others 7 cards, winner 5 (skips if the player wins first)'
+  },
+  pairs: {
+    A: 'Pocket Aces: Until you play again, opponent must play 10 or above',
+    2: 'Pair Pair: Opponent draws 3 cards instead of 2',
+    3: 'Feeling Off: Until you play again, opponent must play odd numbers',
+    4: 'Half the Cards: Until you play again, opponent cannot play 8 or above',
+    5: 'Medium Rare: Take a 5 from discard, pick a card from deck, reshuffle, set 5 as discard',
+    6: 'Devilish Stare: Opponent skips their next turn',
+    7: 'Double Luck: Look at top 2 cards, replace one of yours, reshuffle',
+    8: 'Good Fortune: Put any card on discard pile, opponent follows it',
+    9: 'Fort: Only pairs or better can play until destroyed or your next turn; draw 1 if no pair',
+    10: 'Feeling Right: Until you play again, opponent must play even numbers',
+    J: 'High Card: Until you play again, opponent must play 8 or above',
+    Q: 'Complaint: Opponent draws 1, you return a card to deck and shuffle',
+    K: 'I am your Father: Until you play again, opponent alternates even/odd (K/J odd)'
   }
 };
 
@@ -62,17 +77,14 @@ function updateDisplay(data) {
   document.getElementById('draw-button').style.display = data.canPlay ? 'none' : 'inline';
   console.log('Hand size:', data.playerHand.length);
   if (data.phase === 'over') alert(data.status);
+  if (data.pairEffect) document.getElementById('status').textContent += ` (Pair ${data.pairEffect} active)`;
+  if (data.fortActive) document.getElementById('status').textContent += ' (Fort active)';
 }
 
 function toggleCard(card) {
   if (data.phase === 'setup') {
     selectedCards = [card];
-    const [rank, suitChar] = [card.slice(0, -1), card.slice(-1)];
-    const suit = Object.keys(rulerAbilities.suits).find(s => s[0] === suitChar);
-    const abilityKey = rank === 'A' ? `A-${suit}` : rank;
-    const suitAbility = rank === 'A' ? '' : `Suit: ${rulerAbilities.suits[suit]} | `;
-    document.getElementById('ruler-abilities').style.display = 'block';
-    document.getElementById('ruler-abilities').textContent = `${suitAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
+    showRulerAbilities('player', card);
   } else {
     const index = selectedCards.indexOf(card);
     if (index === -1) {
@@ -80,20 +92,21 @@ function toggleCard(card) {
     } else {
       selectedCards.splice(index, 1);
     }
+    fetchGame();
   }
-  fetchGame();
 }
 
-function showRulerAbilities(player) {
-  const ruler = player === 'player' ? document.getElementById('player-ruler').textContent : document.getElementById('ai-ruler').textContent;
-  if (ruler === 'None') return;
+function showRulerAbilities(player, selectedCard = null) {
+  const ruler = selectedCard ? selectedCard : (player === 'player' ? document.getElementById('player-ruler').textContent : document.getElementById('ai-ruler').textContent);
+  if (ruler === 'None' && !selectedCard) return;
   const [rank, suitChar] = [ruler.slice(0, -1), ruler.slice(-1)];
   const suit = Object.keys(rulerAbilities.suits).find(s => s[0] === suitChar);
   const abilityKey = rank === 'A' ? `A-${suit}` : rank;
   const suitAbility = rank === 'A' ? '' : `Suit: ${rulerAbilities.suits[suit]} | `;
+  const pairAbility = rulerAbilities.pairs[rank] ? `Pair: ${rulerAbilities.pairs[rank]} | ` : '';
   document.getElementById('ruler-abilities').style.display = 'block';
   document.getElementById('ruler-abilities').textContent = 
-    `${player === 'player' ? 'Player' : 'Opponent'} Ruler - ${suitAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
+    `${player === 'player' ? 'Player' : 'Opponent'} Ruler - ${suitAbility}${pairAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
 }
 
 function playSelected() {
