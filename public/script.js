@@ -80,19 +80,68 @@ function updateDisplay(data) {
   if (data.pairEffect) document.getElementById('status').textContent += ` (Pair ${data.pairEffect} active)`;
   if (data.fortActive) document.getElementById('status').textContent += ' (Fort active)';
 
-  // Show pair effect if two cards of same rank selected
+  // Show pair effect only for valid pairs
   if (data.phase === 'play' && selectedCards.length === 2) {
     const [card1, card2] = selectedCards;
     const rank1 = card1.slice(0, -1);
     const rank2 = card2.slice(0, -1);
-    if (rank1 === rank2) {
-      document.getElementById('ruler-abilities').style.display = 'block';
-      document.getElementById('ruler-abilities').textContent = `Pair Effect - ${rulerAbilities.pairs[rank1]}`;
+    const suit1 = card1.slice(-1);
+    const suit2 = card2.slice(-1);
+    const cardsToCheck = [
+      { rank: rank1, suit: Object.keys(rulerAbilities.suits).find(s => s[0] === suit1) },
+      { rank: rank2, suit: Object.keys(rulerAbilities.suits).find(s => s[0] === suit2) }
+    ];
+    const top = data.discard === 'None' ? null : {
+      rank: data.discard.slice(0, -1),
+      suit: Object.keys(rulerAbilities.suits).find(s => s[0] === data.discard.slice(-1))
+    };
+    
+    // Simulate isValidPlay check (simplified client-side version)
+    const isPair = rank1 === rank2;
+    let isValid = false;
+    if (isPair) {
+      // Check if pair is valid against current game state
+      const move = selectedCards.join(',');
+      fetch(`/api/game?session=${sessionId}&move=${move}`, { method: 'POST' })
+        .then(res => res.json())
+        .then(result => {
+          if (result.status !== 'Invalid play!') {
+            isValid = true;
+            document.getElementById('ruler-abilities').style.display = 'block';
+            document.getElementById('ruler-abilities').textContent = `Pair Effect - ${rulerAbilities.pairs[rank1]}`;
+          } else {
+            document.getElementById('ruler-abilities').style.display = 'none';
+          }
+        })
+        .catch(() => {
+          document.getElementById('ruler-abilities').style.display = 'none';
+        });
     } else {
       document.getElementById('ruler-abilities').style.display = 'none';
     }
+  } else {
+    document.getElementById('ruler-abilities').style.display = 'none';
   }
 }
+
+// Inline CSS for yellow highlight
+document.head.insertAdjacentHTML('beforeend', `
+  <style>
+    .card.selected {
+      background-color: yellow;
+      color: black; /* Ensure readability on yellow */
+    }
+    .card.red {
+      color: red;
+    }
+    .card {
+      padding: 2px 5px;
+      margin: 2px;
+      cursor: pointer;
+      display: inline-block;
+    }
+  </style>
+`);
 
 function toggleCard(card) {
   if (data.phase === 'setup') {
@@ -105,7 +154,7 @@ function toggleCard(card) {
     } else {
       selectedCards.splice(index, 1);
     }
-    fetchGame(); // Refreshes display to check for pair
+    fetchGame(); // Refreshes display to check for valid pair
   }
 }
 
