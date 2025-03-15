@@ -80,7 +80,6 @@ function updateDisplay(data) {
   if (data.pairEffect) document.getElementById('status').textContent += ` (Pair ${data.pairEffect} active)`;
   if (data.fortActive) document.getElementById('status').textContent += ' (Fort active)';
 
-  // Show pair effect only for valid pairs
   if (data.phase === 'play' && selectedCards.length === 2) {
     const [card1, card2] = selectedCards;
     const rank1 = card1.slice(0, -1);
@@ -96,11 +95,9 @@ function updateDisplay(data) {
       suit: Object.keys(rulerAbilities.suits).find(s => s[0] === data.discard.slice(-1))
     };
     
-    // Simulate isValidPlay check (simplified client-side version)
     const isPair = rank1 === rank2;
     let isValid = false;
     if (isPair) {
-      // Check if pair is valid against current game state
       const move = selectedCards.join(',');
       fetch(`/api/game?session=${sessionId}&move=${move}`, { method: 'POST' })
         .then(res => res.json())
@@ -119,26 +116,28 @@ function updateDisplay(data) {
     } else {
       document.getElementById('ruler-abilities').style.display = 'none';
     }
+  } else if (data.phase === 'setup' && selectedCards.length === 1) {
+    showRulerAbilities('player', selectedCards[0]);
   } else {
     document.getElementById('ruler-abilities').style.display = 'none';
   }
 }
 
-// Inline CSS for yellow highlight
 document.head.insertAdjacentHTML('beforeend', `
   <style>
     .card.selected {
       background-color: yellow;
-      color: black; /* Ensure readability on yellow */
+      color: black;
     }
     .card.red {
       color: red;
     }
     .card {
-      padding: 2px 5px;
+      padding: 8px 5px; /* Increased padding-top/bottom for taller cards */
       margin: 2px;
       cursor: pointer;
       display: inline-block;
+      min-height: 20px; /* Ensures taller appearance */
     }
   </style>
 `);
@@ -146,7 +145,7 @@ document.head.insertAdjacentHTML('beforeend', `
 function toggleCard(card) {
   if (data.phase === 'setup') {
     selectedCards = [card];
-    showRulerAbilities('player', card);
+    fetchGame(); // Update display to highlight and show ruler abilities
   } else {
     const index = selectedCards.indexOf(card);
     if (index === -1) {
@@ -154,7 +153,7 @@ function toggleCard(card) {
     } else {
       selectedCards.splice(index, 1);
     }
-    fetchGame(); // Refreshes display to check for valid pair
+    fetchGame();
   }
 }
 
@@ -165,10 +164,10 @@ function showRulerAbilities(player, selectedCard = null) {
   const suit = Object.keys(rulerAbilities.suits).find(s => s[0] === suitChar);
   const abilityKey = rank === 'A' ? `A-${suit}` : rank;
   const suitAbility = rank === 'A' ? '' : `Suit: ${rulerAbilities.suits[suit]} | `;
-  const pairAbility = rulerAbilities.pairs[rank] ? `Pair: ${rulerAbilities.pairs[rank]} | ` : '';
+  // Only show suit and rank abilities during setup
   document.getElementById('ruler-abilities').style.display = 'block';
   document.getElementById('ruler-abilities').textContent = 
-    `${player === 'player' ? 'Player' : 'Opponent'} Ruler - ${suitAbility}${pairAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
+    `${player === 'player' ? 'Player' : 'Opponent'} Ruler - ${suitAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
 }
 
 function playSelected() {
