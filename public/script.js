@@ -79,6 +79,19 @@ function updateDisplay(data) {
   if (data.phase === 'over') alert(data.status);
   if (data.pairEffect) document.getElementById('status').textContent += ` (Pair ${data.pairEffect} active)`;
   if (data.fortActive) document.getElementById('status').textContent += ' (Fort active)';
+
+  // Show pair effect if two cards of same rank selected
+  if (data.phase === 'play' && selectedCards.length === 2) {
+    const [card1, card2] = selectedCards;
+    const rank1 = card1.slice(0, -1);
+    const rank2 = card2.slice(0, -1);
+    if (rank1 === rank2) {
+      document.getElementById('ruler-abilities').style.display = 'block';
+      document.getElementById('ruler-abilities').textContent = `Pair Effect - ${rulerAbilities.pairs[rank1]}`;
+    } else {
+      document.getElementById('ruler-abilities').style.display = 'none';
+    }
+  }
 }
 
 function toggleCard(card) {
@@ -92,7 +105,7 @@ function toggleCard(card) {
     } else {
       selectedCards.splice(index, 1);
     }
-    fetchGame();
+    fetchGame(); // Refreshes display to check for pair
   }
 }
 
