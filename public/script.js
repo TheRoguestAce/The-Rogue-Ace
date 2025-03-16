@@ -52,101 +52,75 @@ async function fetchGame(move = '', reset = false) {
   data = await res.json();
   console.log('Received:', JSON.stringify(data));
   updateDisplay(data);
-  if (data.phase !== 'over' && data.turn === 0 && move && move !== 'draw' && !reset) {
-    setTimeout(() => fetchGame(), 500);
-  }
 }
 
 function updateDisplay(data) {
   document.getElementById('discard').textContent = data.discard || 'None';
-  const playerHandElement = document.getElementById('player-hand');
-  if (data.playerHand && data.playerHand.length > 0) {
-    playerHandElement.innerHTML = data.playerHand.map(c => {
+  const playerAHandElement = document.getElementById('playerAHand');
+  const playerBHandElement = document.getElementById('playerBHand');
+  
+  // Player A Hand (clickable cards)
+  if (data.playerAHand && data.playerAHand.length > 0 && data.turn === 'A') {
+    playerAHandElement.innerHTML = data.playerAHand.map(c => {
       const cardStr = `${c.rank}${c.suit[0]}`;
       const isSelected = selectedCards.includes(cardStr);
       return `<span class="card ${['Diamonds', 'Hearts'].includes(c.suit) ? 'red' : ''} ${isSelected ? 'selected' : ''}" data-card="${cardStr}" onclick="toggleCard('${cardStr}')">${cardStr}</span>`;
     }).join(' ');
   } else {
-    playerHandElement.textContent = 'Empty';
+    playerAHandElement.textContent = data.playerAHand.map(c => `${c.rank}${c.suit[0]}`).join(', ') || 'Empty';
   }
-  document.getElementById('ai-hand').textContent = data.aiHandSize || 0;
-  document.getElementById('player-ruler').textContent = data.playerRuler || 'None';
-  document.getElementById('ai-ruler').textContent = data.aiRuler || 'None';
+
+  // Player B Hand (clickable only on B's turn)
+  if (data.playerBHand && data.playerBHand.length > 0 && data.turn === 'B') {
+    playerBHandElement.innerHTML = data.playerBHand.map(c => {
+      const cardStr = `${c.rank}${c.suit[0]}`;
+      const isSelected = selectedCards.includes(cardStr);
+      return `<span class="card ${['Diamonds', 'Hearts'].includes(c.suit) ? 'red' : ''} ${isSelected ? 'selected' : ''}" data-card="${cardStr}" onclick="toggleCard('${cardStr}')">${cardStr}</span>`;
+    }).join(' ');
+  } else {
+    playerBHandElement.textContent = data.playerBHand.map(c => `${c.rank}${c.suit[0]}`).join(', ') || 'Empty';
+  }
+
+  document.getElementById('playerARuler').textContent = data.playerARuler || 'None';
+  document.getElementById('playerBRuler').textContent = data.playerBRuler || 'None';
   document.getElementById('status').textContent = data.status || 'Error';
-  document.getElementById('move-history').textContent = (data.moveHistory || []).join(' | ') || 'None';
+  document.getElementById('turn').textContent = data.turn || '?';
+  document.getElementById('moveHistory').textContent = (data.moveHistory || []).join(' | ') || 'None';
+  document.getElementById('deckSize').textContent = data.deckSize || '?';
   document.getElementById('draw-button').style.display = data.canPlay ? 'none' : 'inline';
-  console.log('Hand size:', data.playerHand.length);
+  
   if (data.phase === 'over') alert(data.status);
   if (data.pairEffect) document.getElementById('status').textContent += ` (Pair ${data.pairEffect} active)`;
-  if (data.fortActive) document.getElementById('status').textContent += ' (Fort active)';
+  if (data.fortActive) document.getElementById('status').textContent += ` (Fort active${data.fortRank ? ` - ${data.fortRank}` : ''})`;
 
-  if (data.phase === 'play' && selectedCards.length === 2) {
-    const [card1, card2] = selectedCards;
-    const rank1 = card1.slice(0, -1);
-    const rank2 = card2.slice(0, -1);
-    const suit1 = card1.slice(-1);
-    const suit2 = card2.slice(-1);
-    const cardsToCheck = [
-      { rank: rank1, suit: Object.keys(rulerAbilities.suits).find(s => s[0] === suit1) },
-      { rank: rank2, suit: Object.keys(rulerAbilities.suits).find(s => s[0] === suit2) }
-    ];
-    const top = data.discard === 'None' ? null : {
-      rank: data.discard.slice(0, -1),
-      suit: Object.keys(rulerAbilities.suits).find(s => s[0] === data.discard.slice(-1))
-    };
-    
-    const isPair = rank1 === rank2;
-    let isValid = false;
+  // Ruler/Pair abilities display
+  if (data.phase === 'setup' && selectedCards.length === 1) {
+    showRulerAbilities(data.turn === 'A' ? 'playerA' : 'playerB', selectedCards[0]);
+  } else if (data.phase === 'play' && selectedCards.length >= 2) {
+    const isPair = selectedCards.length === 2 && selectedCards.every(c => c.slice(0, -1) === selectedCards[0].slice(0, -1));
+    const isToaK = selectedCards.length === 3 && selectedCards.every(c => c.slice(0, -1) === selectedCards[0].slice(0, -1));
     if (isPair) {
-      const move = selectedCards.join(',');
-      fetch(`/api/game?session=${sessionId}&move=${move}`, { method: 'POST' })
-        .then(res => res.json())
-        .then(result => {
-          if (result.status !== 'Invalid play!') {
-            isValid = true;
-            document.getElementById('ruler-abilities').style.display = 'block';
-            document.getElementById('ruler-abilities').textContent = `Pair Effect - ${rulerAbilities.pairs[rank1]}`;
-          } else {
-            document.getElementById('ruler-abilities').style.display = 'none';
-          }
-        })
-        .catch(() => {
-          document.getElementById('ruler-abilities').style.display = 'none';
-        });
+      const rank = selectedCards[0].slice(0, -1);
+      document.getElementById('ruler-abilities').style.display = 'block';
+      document.getElementById('ruler-abilities').textContent = `Pair Effect - ${rulerAbilities.pairs[rank]}`;
+    } else if (isToaK) {
+      const rank = selectedCards[0].slice(0, -1);
+      document.getElementById('ruler-abilities').style.display = 'block';
+      document.getElementById('ruler-abilities').textContent = rank === 'A' ? 'ToaK Aces: Opponent draws 8' : `ToaK ${rank}: Fort created (destroy with higher pair)`;
     } else {
       document.getElementById('ruler-abilities').style.display = 'none';
     }
-  } else if (data.phase === 'setup' && selectedCards.length === 1) {
-    showRulerAbilities('player', selectedCards[0]);
   } else {
     document.getElementById('ruler-abilities').style.display = 'none';
   }
 }
 
-document.head.insertAdjacentHTML('beforeend', `
-  <style>
-    .card.selected {
-      background-color: yellow;
-      color: black;
-    }
-    .card.red {
-      color: red;
-    }
-    .card {
-      padding: 8px 5px; /* Increased padding-top/bottom for taller cards */
-      margin: 2px;
-      cursor: pointer;
-      display: inline-block;
-      min-height: 20px; /* Ensures taller appearance */
-    }
-  </style>
-`);
-
 function toggleCard(card) {
   if (data.phase === 'setup') {
     selectedCards = [card];
     fetchGame(); // Update display to highlight and show ruler abilities
-  } else {
+  } else if (data.turn === 'A' && data.playerAHand.some(c => `${c.rank}${c.suit[0]}` === card) ||
+             data.turn === 'B' && data.playerBHand.some(c => `${c.rank}${c.suit[0]}` === card)) {
     const index = selectedCards.indexOf(card);
     if (index === -1) {
       selectedCards.push(card);
@@ -157,17 +131,15 @@ function toggleCard(card) {
   }
 }
 
-function showRulerAbilities(player, selectedCard = null) {
-  const ruler = selectedCard ? selectedCard : (player === 'player' ? document.getElementById('player-ruler').textContent : document.getElementById('ai-ruler').textContent);
-  if (ruler === 'None' && !selectedCard) return;
+function showRulerAbilities(player, selectedCard) {
+  const ruler = selectedCard;
   const [rank, suitChar] = [ruler.slice(0, -1), ruler.slice(-1)];
   const suit = Object.keys(rulerAbilities.suits).find(s => s[0] === suitChar);
   const abilityKey = rank === 'A' ? `A-${suit}` : rank;
   const suitAbility = rank === 'A' ? '' : `Suit: ${rulerAbilities.suits[suit]} | `;
-  // Only show suit and rank abilities during setup
   document.getElementById('ruler-abilities').style.display = 'block';
   document.getElementById('ruler-abilities').textContent = 
-    `${player === 'player' ? 'Player' : 'Opponent'} Ruler - ${suitAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
+    `${player === 'playerA' ? 'Player A' : 'Player B'} Ruler - ${suitAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
 }
 
 function playSelected() {
@@ -189,6 +161,16 @@ function resetGame() {
   document.getElementById('ruler-abilities').style.display = 'none';
   fetchGame('', true);
 }
+
+// Add cards functionality
+document.getElementById('addCardsBtn').addEventListener('click', async () => {
+  const cardInput = document.getElementById('cardInput').value.trim();
+  if (cardInput) {
+    await fetch(`/api/game?session=${sessionId}&addCards=${cardInput}`, { method: 'POST' });
+    document.getElementById('cardInput').value = '';
+    await fetchGame();
+  }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
   fetchGame();
