@@ -76,6 +76,17 @@ function handler(req, res) {
     const isToaK = cards.length === 3 && cards.every(c => c.rank === cards[0].rank);
     const topValue = top ? rankValue(top.rank) : 0;
 
+    // Handle null top (no discard) explicitly
+    if (!top && game.phase === 'play') {
+      if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds') && cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0)) return !isPair;
+      if ((rulerSuit === 'Diamonds' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Diamonds')) && cards.length === 2 && cards.some(c => c.suit === 'Diamonds') && !isPair) return true;
+      if ((rulerRank === '3' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '3')) && cards.length === 1 && cards[0].rank === '7') return true;
+      if ((rulerRank === '7' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '7')) && cards.length === 1 && cards[0].rank === '3') return true;
+      if ((rulerRank === '10' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank))) return !isPair;
+      if (cards.length >= 2 && cards.length <= 4 && cards.every(c => c.rank === cards[0].rank)) return true;
+      return false; // No discard means first play must meet special conditions
+    }
+
     if (game.fortActive && game.turn !== game.pairEffectOwner) {
       if (cards.length === 1) return false;
       if (isPair && game.fortRank) {
@@ -104,35 +115,25 @@ function handler(req, res) {
       }
     }
 
-    if (!top && game.phase === 'play') {
-      if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds') && cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0)) return !isPair;
-      if ((rulerSuit === 'Diamonds' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Diamonds')) && cards.length === 2 && cards.some(c => c.suit === 'Diamonds') && !isPair) return true;
-      if ((rulerRank === '3' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '3')) && cards.length === 1 && cards[0].rank === '7') return true;
-      if ((rulerRank === '7' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '7')) && cards.length === 1 && cards[0].rank === '3') return true;
-      if ((rulerRank === '10' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank))) return !isPair;
-      if (cards.length >= 2 && cards.length <= 4 && cards.every(c => c.rank === cards[0].rank)) return true;
-      return false;
-    }
-
     if (cards.length === 1) {
       const card = cards[0];
       const value = rankValue(card.rank);
       const rulerValue = ((rulerSuit === 'Hearts' && card.suit === 'Hearts') || (rulerRank === 'A' && rulerSuit === 'Hearts')) && rulerRank !== 'A' ? rankValue(rulerRank) : null;
       const slicedValue = (rulerSuit === 'Spades' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Spades')) && card.suit === 'Spades' ? Math.ceil(value / 2) - 1 : null;
       const pocketValue = (rulerRank === 'A' && rulerSuit === 'Spades') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Spades') ? Math.floor(value / 2) : null;
-      let matches = card.suit === top.suit || card.rank === top.rank || value % 2 === topValue % 2;
+      let matches = top && (card.suit === top.suit || card.rank === top.rank || value % 2 === topValue % 2);
 
       if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds') && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) matches = true;
       if ((rulerRank === 'A' && rulerSuit === 'Hearts') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Hearts')) matches = true;
-      if ((rulerRank === 'A' && rulerSuit === 'Spades') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Spades')) matches = matches || pocketValue === topValue;
-      if ((rulerRank === 'A' && rulerSuit === 'Clubs') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Clubs')) matches = matches || Math.floor(value / 2) === topValue;
-      if ((rulerRank === '5' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '5')) && ['J', 'Q', 'K'].includes(card.rank)) matches = topValue === 5;
-      if ((rulerRank === '10' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '10')) && isEven(card.rank) && isEven(top.rank)) matches = true;
-      if ((rulerRank === 'J' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'J')) && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
+      if ((rulerRank === 'A' && rulerSuit === 'Spades') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Spades')) matches = matches || (top && pocketValue === topValue);
+      if ((rulerRank === 'A' && rulerSuit === 'Clubs') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Clubs')) matches = matches || (top && Math.floor(value / 2) === topValue);
+      if ((rulerRank === '5' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '5')) && ['J', 'Q', 'K'].includes(card.rank)) matches = top && topValue === 5;
+      if ((rulerRank === '10' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '10')) && isEven(card.rank) && top && isEven(top.rank)) matches = true;
+      if ((rulerRank === 'J' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'J')) && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = top && ['J', 'Q', 'K', 'A'].includes(top.rank);
       if ((rulerRank === 'Q' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'Q')) && card.rank === 'K') matches = true;
-      if ((rulerSuit === 'Hearts' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Hearts')) && rulerRank !== 'A') matches = matches || rulerValue === topValue || rulerValue % 2 === topValue % 2;
-      if ((rulerSuit === 'Spades' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Spades')) && card.suit === 'Spades') matches = matches || slicedValue === topValue || slicedValue % 2 === topValue % 2;
-      return matches;
+      if ((rulerSuit === 'Hearts' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Hearts')) && rulerRank !== 'A') matches = matches || (top && (rulerValue === topValue || rulerValue % 2 === topValue % 2));
+      if ((rulerSuit === 'Spades' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Spades')) && card.suit === 'Spades') matches = matches || (top && (slicedValue === topValue || slicedValue % 2 === topValue % 2));
+      return !!matches; // Convert to boolean, false if top is null and no special rule applies
     }
 
     if (cards.length === 2) {
@@ -145,7 +146,7 @@ function handler(req, res) {
 
     if (isToaK) return cards.every(card => isValidPlay([card], top));
 
-    if ((rulerRank === '10' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank)) && isEven(top.rank)) return !isPair;
+    if ((rulerRank === '10' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank)) && top && isEven(top.rank)) return !isPair;
 
     if (cards.length >= 2 && cards.length <= 4) return cards.every(c => c.rank === cards[0].rank);
 
