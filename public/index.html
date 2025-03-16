@@ -1,24 +1,96 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>The Rogue Ace</title>
-  <link rel="stylesheet" href="/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Rogue Ace - Developer Mode</title>
+  <style>
+    /* Basic styling for clarity */
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #game { display: flex; flex-direction: column; gap: 10px; }
+    #cardInput { padding: 5px; width: 150px; }
+    #addCardsBtn { padding: 5px 10px; }
+  </style>
 </head>
 <body>
   <div id="game">
-    <h1>The Rogue Ace</h1>
-    <p>Discard: <span id="discard">None</span></p>
-    <p>Your Hand: <span id="player-hand"></span></p>
-    <p>AI Hand: <span id="ai-hand">0</span> cards</p>
-    <p>Your Ruler: <span id="player-ruler" onclick="showRulerAbilities('player')">None</span></p>
-    <p>AI Ruler: <span id="ai-ruler" onclick="showRulerAbilities('ai')">None</span></p>
-    <p id="status">Loading...</p>
-    <p>Last Moves: <span id="move-history"></span></p>
-    <p id="ruler-abilities" style="display: none;"></p>
-    <button onclick="playSelected()">Play Selected</button>
-    <button id="draw-button" onclick="drawCards()" style="display: none;">Draw</button>
-    <button onclick="resetGame()">Reset</button>
+    <h1>The Rogue Ace - Developer Mode</h1>
+    <div>Status: <span id="status">Loading...</span></div>
+    <div>Turn: <span id="turn">?</span></div>
+    <div>Discard: <span id="discard">None</span></div>
+    <div>Player A Hand: <span id="playerAHand">[]</span></div>
+    <div>Player B Hand: <span id="playerBHand">[]</span></div>
+    <div>Player A Ruler: <span id="playerARuler">None</span></div>
+    <div>Player B Ruler: <span id="playerBRuler">None</span></div>
+    <div>Move History: <span id="moveHistory">[]</span></div>
+    <div>Deck Size: <span id="deckSize">?</span></div>
+    <div>
+      <input id="cardInput" type="text" placeholder="e.g., 18DA (1 8D to A)">
+      <button id="addCardsBtn">Add Cards</button>
+      <button id="drawBtn">Draw</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+    <div><input id="moveInput" type="text" placeholder="e.g., 5S,9H"><button id="playBtn">Play</button></div>
   </div>
-  <script src="/script.js"></script>
+
+  <script>
+    const sessionId = 'dev-' + Date.now(); // Unique session per load
+    let gameState = {};
+
+    // Fetch game state
+    async function fetchGame() {
+      const response = await fetch(`/api/game?session=${sessionId}`);
+      gameState = await response.json();
+      updateUI();
+    }
+
+    // Update UI with game state
+    function updateUI() {
+      document.getElementById('status').textContent = gameState.status;
+      document.getElementById('turn').textContent = gameState.turn;
+      document.getElementById('discard').textContent = gameState.discard;
+      document.getElementById('playerAHand').textContent = JSON.stringify(gameState.playerAHand.map(c => `${c.rank}${c.suit[0]}`));
+      document.getElementById('playerBHand').textContent = JSON.stringify(gameState.playerBHand.map(c => `${c.rank}${c.suit[0]}`));
+      document.getElementById('playerARuler').textContent = gameState.playerARuler;
+      document.getElementById('playerBRuler').textContent = gameState.playerBRuler;
+      document.getElementById('moveHistory').textContent = JSON.stringify(gameState.moveHistory);
+      document.getElementById('deckSize').textContent = gameState.deckSize;
+    }
+
+    // Add cards
+    document.getElementById('addCardsBtn').addEventListener('click', async () => {
+      const cardInput = document.getElementById('cardInput').value.trim();
+      if (cardInput) {
+        await fetch(`/api/game?session=${sessionId}&addCards=${cardInput}`, { method: 'POST' });
+        document.getElementById('cardInput').value = '';
+        await fetchGame();
+      }
+    });
+
+    // Draw cards
+    document.getElementById('drawBtn').addEventListener('click', async () => {
+      await fetch(`/api/game?session=${sessionId}&move=draw`, { method: 'POST' });
+      await fetchGame();
+    });
+
+    // Reset game
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      await fetch(`/api/game?session=${sessionId}&reset=true`, { method: 'POST' });
+      await fetchGame();
+    });
+
+    // Play cards
+    document.getElementById('playBtn').addEventListener('click', async () => {
+      const moveInput = document.getElementById('moveInput').value.trim();
+      if (moveInput) {
+        await fetch(`/api/game?session=${sessionId}&move=${moveInput}`, { method: 'POST' });
+        document.getElementById('moveInput').value = '';
+        await fetchGame();
+      }
+    });
+
+    // Initial load
+    fetchGame();
+  </script>
 </body>
 </html>
