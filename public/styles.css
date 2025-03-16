@@ -1,43 +1,45 @@
 body {
   font-family: Arial, sans-serif;
-  margin: 20px;
 }
 
 #game {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  max-width: 600px;
+  margin: 20px auto;
 }
 
 .card {
-  padding: 8px 5px;
+  padding: 5px;
+  border: 1px solid #000;
   margin: 2px;
-  cursor: pointer;
   display: inline-block;
-  min-height: 20px;
+  cursor: pointer;
 }
 
-.card.red {
+.red {
   color: red;
 }
 
-.card.selected {
-  background-color: yellow;
-  color: black;
+.selected {
+  background: #ffd700; /* Gold background from your old styles */
+}
+
+#status {
+  color: #d90429; /* Red status text from your old styles */
+}
+
+button {
+  margin: 5px;
+  padding: 5px 10px;
 }
 
 #cardInput {
   padding: 5px;
   width: 150px;
-}
-
-button {
-  padding: 5px 10px;
-  margin-left: 5px;
+  margin: 5px;
 }
 
 #ruler-abilities {
-  margin-top: 10px;
+  margin: 5px;
   padding: 5px;
   background-color: #f0f0f0;
 }
