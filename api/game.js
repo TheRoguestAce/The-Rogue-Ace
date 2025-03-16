@@ -31,7 +31,8 @@ async function handler(req, res) {
       fortActive: false,
       fortCard: null,
       fortRank: null,
-      extraTurn: false
+      extraTurn: false,
+      discardPile: [] // Track discarded cards for Pair 5
     };
     gameStates[sessionId] = game;
   }
@@ -63,7 +64,7 @@ async function handler(req, res) {
       case '2': return 'Pair Pair';
       case '3': return 'Odd Job';
       case '4': return 'Low Life';
-      case '5': return 'Feeling Off';
+      case '5': return 'Medium Rare';
       case '6': return 'Skip It';
       case '7': return 'Switch Up';
       case '8': return 'Discard Twist';
@@ -101,20 +102,26 @@ async function handler(req, res) {
     }
 
     if (game.pairEffect && game.turn !== game.pairEffectOwner) {
-      const value = rankValue(cards[0].rank);
-      if (game.pairEffect === 'A' && value < 10) return false;
-      if (game.pairEffect === '3' && value % 2 === 0) return false;
-      if (game.pairEffect === '4' && value >= 8) return false;
-      if (game.pairEffect === '10' && value % 2 !== 0) return false;
-      if (game.pairEffect === 'J' && value < 8) return false;
+      const checkValue = c => {
+        let value = rankValue(c.rank);
+        if (((rulerSuit === 'Hearts' && c.suit === 'Hearts') || (rulerRank === 'A' && rulerSuit === 'Hearts')) && rulerRank !== 'A') value = rankValue(rulerRank);
+        return value;
+      };
+      const values = cards.map(checkValue);
+      if (game.pairEffect === 'A' && values.some(v => v < 10)) return false;
+      if (game.pairEffect === '3' && values.some(v => v % 2 === 0)) return false;
+      if (game.pairEffect === '4' && values.some(v => v >= 8)) return false;
+      if (game.pairEffect === '10' && values.some(v => v % 2 !== 0)) return false;
+      if (game.pairEffect === 'J' && values.some(v => v < 8)) return false;
       if (game.pairEffect === 'K') {
         const lastWasEven = game.moveHistory.length > 0 && rankValue(game.discard.rank) % 2 === 0;
-        return lastWasEven ? value % 2 !== 0 : value % 2 === 0;
+        return lastWasEven ? values.every(v => v % 2 !== 0) : values.every(v => v % 2 === 0);
       }
     }
 
     if (!top && game.phase === 'play') {
       if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || (rulerRank === 'K' && opponentRank === 'A' && opponentSuit === 'Diamonds') && cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0)) return !isPair;
+      if ((rulerSuit === 'Diamonds' || (rulerRank === 'K' && opponentSuit === 'Diamonds')) && cards.length === 2 && cards.some(c => c.suit === 'Diamonds') && !isPair) return true;
       if ((rulerRank === '3' || (rulerRank === 'K' && opponentRank === '3')) && cards.length === 1 && cards[0].rank === '7') return true;
       if ((rulerRank === '7' || (rulerRank === 'K' && opponentRank === '7')) && cards.length === 1 && cards[0].rank === '3') return true;
       if ((rulerRank === '10' || (rulerRank === 'K' && opponentRank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank))) return !isPair;
@@ -125,7 +132,7 @@ async function handler(req, res) {
     if (cards.length === 1) {
       const card = cards[0];
       const value = rankValue(card.rank);
-      const rulerValue = (rulerSuit === 'Hearts' || (rulerRank === 'K' && opponentSuit === 'Hearts')) && rulerRank !== 'A' ? rankValue(rulerRank === 'K' ? opponentRank : rulerRank) : null;
+      const rulerValue = ((rulerSuit === 'Hearts' && card.suit === 'Hearts') || (rulerRank === 'A' && rulerSuit === 'Hearts')) && rulerRank !== 'A' ? rankValue(rulerRank === 'K' ? opponentRank : rulerRank) : null;
       const slicedValue = (rulerSuit === 'Spades' || (rulerRank === 'K' && opponentSuit === 'Spades')) && rulerRank !== 'A' && card.suit === 'Spades' ? Math.ceil(value / 2) - 1 : null;
       let matches = isRed(card.suit) === isRed(top.suit) || card.rank === top.rank || value % 2 === topValue % 2;
 
@@ -142,13 +149,16 @@ async function handler(req, res) {
       return matches;
     }
 
-    if (cards.length === 2 && cards[0].rank === cards[1].rank && top) {
-      const validSingle = cards.every(card => isValidPlay([card], top));
-      if (!validSingle) return false;
-      return true;
+    if (cards.length === 2) {
+      if (isPair) {
+        const valid = cards.every(card => isValidPlay([card], top));
+        if (!valid) return false;
+        return true;
+      }
+      if ((rulerSuit === 'Diamonds' || (rulerRank === 'K' && opponentSuit === 'Diamonds')) && cards.some(c => c.suit === 'Diamonds')) return true;
     }
 
-    if (cards.length === 3 && isToaK && top) {
+    if (cards.length === 3 && isToaK) {
       const validSingle = cards.every(card => isValidPlay([card], top));
       if (!validSingle) return false;
       return true;
@@ -217,55 +227,46 @@ async function handler(req, res) {
         fortActive: false,
         fortCard: null,
         fortRank: null,
-        extraTurn: false
+        extraTurn: false,
+        discardPile: []
       };
     } else if (addCards) {
-      const match = addCards.match(/^(\d)([A2-9JQK]|10)([DHSC])([ABD])$/i);
+      const match = addCards.match(/^([A2-9JQK]|10)([DHSC])([ABD])$/i);
       if (!match) {
-        game.status = 'Invalid card code! Use e.g., "18DA" (1 8D to A) or "1KSD" (1 KS to discard)';
+        game.status = 'Invalid card code! Use e.g., "8DA" (A) or "KSD" (discard)';
       } else {
-        const [_, amountStr, rank, suitChar, targetChar] = match;
-        const amount = parseInt(amountStr);
+        const [_, rank, suitChar, targetChar] = match;
         const suit = suits.find(s => s[0].toUpperCase() === suitChar.toUpperCase());
         const validRank = rank === '10' ? '10' : ranks.find(r => r.toUpperCase() === rank.toUpperCase());
         const target = targetChar.toUpperCase();
 
-        if (!validRank || !suit || amount < 1 || amount > 9) {
-          game.status = 'Invalid rank, suit, or amount!';
+        if (!validRank || !suit) {
+          game.status = 'Invalid rank or suit!';
         } else {
           const card = { rank: validRank, suit };
           if (target === 'D') {
-            // Set discard pile
-            if (amount > 1) {
-              game.status = 'Only 1 card can be set to discard!';
+            const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+            if (deckIdx !== -1) {
+              game.discardPile.push(game.discard);
+              game.discard = game.deck.splice(deckIdx, 1)[0];
             } else {
-              const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
-              if (deckIdx !== -1) {
-                game.discard = game.deck.splice(deckIdx, 1)[0];
-              } else {
-                game.discard = { rank: validRank, suit };
-              }
-              game.moveHistory.unshift(`Set ${card.rank}${suit[0]} as discard`);
-              if (game.moveHistory.length > 3) game.moveHistory.pop();
-              game.status = `Player ${game.turn === 0 ? 'A' : 'B'}\'s turn: Set discard!`;
+              game.discardPile.push(game.discard);
+              game.discard = { rank: validRank, suit };
             }
-          } else {
-            // Add to player hand
-            const playerIdx = target === 'A' ? 0 : 1;
-            let added = 0;
-            for (let i = 0; i < amount; i++) {
-              const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
-              if (deckIdx !== -1) {
-                game.players[playerIdx].hand.push(game.deck.splice(deckIdx, 1)[0]);
-                added++;
-              } else {
-                game.players[playerIdx].hand.push({ rank: validRank, suit });
-                added++;
-              }
-            }
-            game.moveHistory.unshift(`Added ${added} ${card.rank}${suit[0]} to Player ${target}`);
+            game.moveHistory.unshift(`Set ${card.rank}${suit[0]} as discard`);
             if (game.moveHistory.length > 3) game.moveHistory.pop();
-            game.status = `Player ${game.turn === 0 ? 'A' : 'B'}\'s turn: Added ${added} card(s)!`;
+            game.status = `Player ${game.turn === 0 ? 'A' : 'B'}\'s turn: Set discard!`;
+          } else {
+            const playerIdx = target === 'A' ? 0 : 1;
+            const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+            if (deckIdx !== -1) {
+              game.players[playerIdx].hand.push(game.deck.splice(deckIdx, 1)[0]);
+            } else {
+              game.players[playerIdx].hand.push({ rank: validRank, suit });
+            }
+            game.moveHistory.unshift(`Added ${card.rank}${suit[0]} to Player ${target}`);
+            if (game.moveHistory.length > 3) game.moveHistory.pop();
+            game.status = `Player ${game.turn === 0 ? 'A' : 'B'}\'s turn: Added card!`;
           }
         }
       }
@@ -314,9 +315,10 @@ async function handler(req, res) {
         if (indices.some(i => i === -1) || !isValidPlay(cards, game.discard)) {
           game.status = 'Invalid play!';
         } else {
-          indices.sort((a, b) => b - a).forEach(i => game.players[game.turn].hand.splice(i, 1));
-          const oldDiscard = game.discard;
-          game.discard = cards[0];
+          const sortedIndices = indices.sort((a, b) => b - a);
+          const playedCards = sortedIndices.map(i => game.players[game.turn].hand.splice(i, 1)[0]);
+          game.discardPile.push(game.discard);
+          game.discard = playedCards[0];
           const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
           const playerRuler = game.players[game.turn].ruler;
           const rulerRank = playerRuler ? playerRuler.rank : null;
@@ -325,8 +327,8 @@ async function handler(req, res) {
           const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || 
                             (cards.length === 5 && values.join(',') === '1,10,11,12,13');
           const isFlush = cards.every(c => c.suit === cards[0].suit);
-          const allEven = cards.every(c => rankValue(c.rank) % 2 === 0);
-          const allOdd = cards.every(c => rankValue(c.rank) % 2 !== 0);
+          const allEven = cards.every(c => isEven(c.rank));
+          const allOdd = cards.every(c => !isEven(c.rank));
           game.lastPlayType = cards.length === 1 ? 'single' :
                              (isPair ? 'pair' :
                              (isToaK ? 'three of a kind' :
@@ -351,6 +353,13 @@ async function handler(req, res) {
                 rulerEffectMessage = `Player ${game.turn === 0 ? 'B' : 'A'} drew ${actualDraw} (Ruler 6: Nightmare)`;
               }
             }
+            if ((rulerRank === '7' || (rulerRank === 'K' && opponentRank === '7')) && cardRank === '3') {
+              const actualDraw = Math.min(2, game.deck.length);
+              if (actualDraw > 0) {
+                game.players[1 - game.turn].hand.push(...game.deck.splice(0, actualDraw));
+                rulerEffectMessage = `Player ${game.turn === 0 ? 'B' : 'A'} drew ${actualDraw} (Ruler 7: Lucky Spin)`;
+              }
+            }
             if ((rulerRank === '8' || (rulerRank === 'K' && opponentRank === '8')) && cardRank === '8' && game.players[1 - game.turn].hand.length <= 3) {
               const actualDraw = Math.min(2, game.deck.length);
               if (actualDraw > 0) {
@@ -363,28 +372,36 @@ async function handler(req, res) {
 
           // Pair Abilities
           let pairEffectMessage = null;
+          let defaultDrawMessage = null;
           if (isPair) {
+            const opponentIdx = 1 - game.turn;
+            const defaultDraw = Math.min(2, game.deck.length);
+            if (defaultDraw > 0) {
+              game.players[opponentIdx].hand.push(...game.deck.splice(0, defaultDraw));
+              defaultDrawMessage = `Player ${game.turn === 0 ? 'B' : 'A'} drew ${defaultDraw} (Pair Default)`;
+            }
             game.pairEffect = cards[0].rank;
             game.pairEffectOwner = game.turn;
             switch (cards[0].rank) {
               case 'A': pairEffectMessage = 'Pair A: Opponent must play 10+'; break;
-              case '2': 
-                const drawCount2 = Math.min(3, game.deck.length);
-                game.players[1 - game.turn].hand.push(...game.deck.splice(0, drawCount2));
-                pairEffectMessage = `Player ${game.turn === 0 ? 'B' : 'A'} drew ${drawCount2} (Pair Pair)`;
+              case '2':
+                const extraDraw2 = Math.min(2, game.deck.length);
+                if (extraDraw2 > 0) {
+                  game.players[opponentIdx].hand.push(...game.deck.splice(0, extraDraw2));
+                  pairEffectMessage = `Player ${game.turn === 0 ? 'B' : 'A'} drew ${extraDraw2} (Pair 2: Extra Draw)`;
+                }
                 break;
               case '3': pairEffectMessage = 'Pair 3: Opponent must play odd'; break;
               case '4': pairEffectMessage = 'Pair 4: Opponent cannot play 8+'; break;
               case '5':
-                if (oldDiscard && oldDiscard.rank === '5') {
-                  game.players[game.turn].hand.push(oldDiscard);
-                  const drawIdx = game.deck.length > 0 ? Math.floor(Math.random() * game.deck.length) : -1;
-                  if (drawIdx >= 0) game.players[game.turn].hand.push(game.deck.splice(drawIdx, 1)[0]);
-                  shuffle(game.deck);
-                  game.discard = cards[0];
-                  pairEffectMessage = 'Pair 5: Took 5 and a card from discard';
+                if (game.discardPile.length > 0) {
+                  const fiveIdx = playedCards.findIndex(c => c.rank === '5');
+                  if (fiveIdx !== -1) game.players[game.turn].hand.push(playedCards[fiveIdx]);
+                  const discardIdx = Math.floor(Math.random() * game.discardPile.length);
+                  game.players[game.turn].hand.push(game.discardPile.splice(discardIdx, 1)[0]);
+                  pairEffectMessage = 'Pair 5: Returned a 5 and took a random discard';
                 } else {
-                  pairEffectMessage = 'Pair 5: No 5 in discard to take';
+                  pairEffectMessage = 'Pair 5: No discard pile to take from';
                 }
                 break;
               case '6': pairEffectMessage = 'Pair 6: Opponent draws 1 next turn'; break;
@@ -413,14 +430,16 @@ async function handler(req, res) {
               case '10': pairEffectMessage = 'Pair 10: Opponent must play even'; break;
               case 'J': pairEffectMessage = 'Pair J: Opponent must play 8+'; break;
               case 'Q':
-                game.players[1 - game.turn].hand.push(...game.deck.splice(0, 1));
-                const returnIdx = Math.floor(Math.random() * game.players[game.turn].hand.length);
-                game.deck.push(game.players[game.turn].hand.splice(returnIdx, 1)[0]);
-                shuffle(game.deck);
-                pairEffectMessage = `Player ${game.turn === 0 ? 'B' : 'A'} drew 1, returned a card (Pair Q)`;
+                const qDraw = Math.min(1, game.deck.length);
+                if (qDraw > 0) {
+                  game.players[opponentIdx].hand.push(...game.deck.splice(0, qDraw));
+                  pairEffectMessage = `Player ${game.turn === 0 ? 'B' : 'A'} drew ${qDraw} (Pair Q)`;
+                  game.extraTurn = true; // Allow picking discard next turn
+                }
                 break;
               case 'K': pairEffectMessage = 'Pair K: Opponent alternates even/odd'; break;
             }
+            if (defaultDrawMessage) game.moveHistory.unshift(defaultDrawMessage);
             if (pairEffectMessage) game.moveHistory.unshift(pairEffectMessage);
           }
 
@@ -437,30 +456,20 @@ async function handler(req, res) {
             }
           }
 
-          if (game.fortActive && game.turn === game.pairEffectOwner) {
-            if (cards.length === 1) {
-              game.fortActive = false;
-              game.fortCard = null;
-              game.fortRank = null;
-              game.moveHistory.unshift('Fort expired (single play)');
-            } else if (isPair || isToaK) {
-              game.moveHistory.unshift('Fort maintained');
-            } else {
-              game.fortActive = false;
-              game.fortCard = null;
-              game.fortRank = null;
-              game.moveHistory.unshift('Fort destroyed (multi play)');
-            }
-          } else if (game.fortActive && isPair) {
-            const fortValue = rankValue(game.fortRank);
-            const pairValue = rankValue(cards[0].rank);
-            if (pairValue > fortValue) {
-              game.fortActive = false;
-              game.fortCard = null;
-              game.fortRank = null;
-              game.moveHistory.unshift(`Fort destroyed (higher pair: ${cards[0].rank})`);
-            } else {
-              game.moveHistory.unshift(`Fort avoided (lower pair: ${cards[0].rank})`);
+          if (game.fortActive) {
+            if (game.turn === game.pairEffectOwner) {
+              game.moveHistory.unshift('Fort continues');
+            } else if (isPair) {
+              const fortValue = rankValue(game.fortRank);
+              const pairValue = rankValue(cards[0].rank);
+              if (pairValue > fortValue) {
+                game.fortActive = false;
+                game.fortCard = null;
+                game.fortRank = null;
+                game.moveHistory.unshift(`Fort destroyed (higher pair: ${cards[0].rank})`);
+              } else {
+                game.moveHistory.unshift(`Fort avoided (lower pair: ${cards[0].rank})`);
+              }
             }
           }
 
@@ -477,8 +486,8 @@ async function handler(req, res) {
           if (game.players[game.turn].hand.length === 0) {
             game.status = `Player ${game.turn === 0 ? 'A' : 'B'} wins! Reset to continue.`;
             game.phase = 'over';
-          } else if (game.extraTurn && cards[0].rank === '8' && isPair) {
-            game.status = `Player ${game.turn === 0 ? 'A' : 'B'}\'s turn: Play again and set discard!`;
+          } else if (game.extraTurn && (cards[0].rank === '8' || cards[0].rank === 'Q') && isPair) {
+            game.status = `Player ${game.turn === 0 ? 'A' : 'B'}\'s turn: ${cards[0].rank === '8' ? 'Play again and set discard!' : 'Pick a card to discard!'}`;
             game.extraTurn = false;
           } else {
             game.turn = 1 - game.turn;
