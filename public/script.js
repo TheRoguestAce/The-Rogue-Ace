@@ -11,7 +11,7 @@ const rulerAbilities = {
     Clubs: 'Strike: Play a pair if 5+ in hand'
   },
   ranks: {
-    2: 'Twice the Might: Pairs make the opponent draw double (4 instead of 2)',
+    2: 'Twice the Might: Pairs make the opponent draw 2 extra (4 total)',
     3: 'Lucky Clover: Play a 7 anytime, the opponent draws 2',
     4: 'Fourfold: Four of a kind reshuffles all cards, the opponent draws 7, the player draws 3',
     5: 'High Five: Face cards count as 5 (pairs OK)',
@@ -24,23 +24,23 @@ const rulerAbilities = {
     Q: 'Ruler’s Touch: Kings are wild cards, counting as every rank, make the opponent draw 1 (pairs OK)',
     K: 'Ruler of Rulers: Inherits all of the opponent’s ruler abilities, replay with 5 cards on first win',
     'A-Diamonds': 'Perfect Card: Odd non-face cards (A,3,5,7,9) playable anytime (no pairs)',
-    'A-Hearts': 'Otherworldly Touch: Hearts are wild cards, counting as every rank, others mimic this card (no pairs)',
+    'A-Hearts': 'Otherworldly Touch: Hearts are wild cards, counting as every rank (no pairs)',
     'A-Spades': 'Pocket Knife: All cards count as both their rank and half rank rounded down (pairs OK)',
     'A-Clubs': 'Nuclear Bomb: First win reshuffles, others 7 cards, winner 5 (skips if the player wins first)'
   },
   pairs: {
     A: 'Pocket Aces: Until you play again, opponent must play 10 or above',
-    2: 'Pair Pair: Opponent draws 3 cards instead of 2',
+    2: 'Pair Pair: Opponent draws 2 extra (4 total)',
     3: 'Feeling Off: Until you play again, opponent must play odd numbers',
     4: 'Half the Cards: Until you play again, opponent cannot play 8 or above',
-    5: 'Medium Rare: Take a 5 from discard, pick a card from deck, reshuffle, set 5 as discard',
+    5: 'Medium Rare: Return first 5 played to hand, take a random card from discard pile',
     6: 'Devilish Stare: Opponent draws 1 next turn',
-    7: 'Double Luck: Look at top 2 cards, replace one of yours, reshuffle',
+    7: 'Double Luck: Look at top card, replace one of yours, reshuffle',
     8: 'Good Fortune: Play again and set discard',
     9: 'Fort: Only pairs or better can play until destroyed or your next turn; draw 1 if no pair',
     10: 'Feeling Right: Until you play again, opponent must play even numbers',
     J: 'High Card: Until you play again, opponent must play 8 or above',
-    Q: 'Complaint: Opponent draws 1, you return a card to deck and shuffle',
+    Q: 'Complaint: Opponent draws 1, you pick a card to discard next turn',
     K: 'I am your Father: Until you play again, opponent alternates even/odd (K/J odd)'
   }
 };
