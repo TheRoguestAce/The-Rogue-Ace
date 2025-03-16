@@ -19,7 +19,7 @@ async function handler(req, res) {
         { hand: [], ruler: null }, // Player A
         { hand: [], ruler: null }  // Player B
       ],
-      turn: 0, // 0 = Player A, 1 = Player B
+      turn: 0,
       phase: 'setup',
       status: 'Developer Mode: Pick your ruler or add cards!',
       moveHistory: [],
@@ -30,7 +30,7 @@ async function handler(req, res) {
       pairEffectOwner: null,
       fortActive: false,
       fortCard: null,
-      fortRank: null, // For ToaK Fort rank
+      fortRank: null,
       extraTurn: false
     };
     gameStates[sessionId] = game;
@@ -92,11 +92,11 @@ async function handler(req, res) {
     const isRed = s => ['Diamonds', 'Hearts'].includes(s);
 
     if (game.fortActive && game.turn !== game.pairEffectOwner) {
-      if (cards.length === 1) return false; // Single cards blocked
+      if (cards.length === 1) return false;
       if (isPair && game.fortRank) {
         const fortValue = rankValue(game.fortRank);
         const pairValue = rankValue(cards[0].rank);
-        return pairValue >= 2 && pairValue <= 13; // Any pair 2-K valid, Aces (1) not enough
+        return pairValue >= 2 && pairValue <= 13;
       }
     }
 
@@ -220,31 +220,53 @@ async function handler(req, res) {
         extraTurn: false
       };
     } else if (addCards) {
-      const match = addCards.match(/^(\d)([A2-9JQK]|10)([DHSC])([AB])$/i);
+      const match = addCards.match(/^(\d)([A2-9JQK]|10)([DHSC])([ABD])$/i);
       if (!match) {
-        game.status = 'Invalid card code! Use e.g., "18DA" (1 8D to A)';
+        game.status = 'Invalid card code! Use e.g., "18DA" (1 8D to A) or "1KSD" (1 KS to discard)';
       } else {
-        const [_, amountStr, rank, suitChar, playerChar] = match;
+        const [_, amountStr, rank, suitChar, targetChar] = match;
         const amount = parseInt(amountStr);
         const suit = suits.find(s => s[0].toUpperCase() === suitChar.toUpperCase());
         const validRank = rank === '10' ? '10' : ranks.find(r => r.toUpperCase() === rank.toUpperCase());
-        const playerIdx = playerChar.toUpperCase() === 'A' ? 0 : 1;
+        const target = targetChar.toUpperCase();
 
         if (!validRank || !suit || amount < 1 || amount > 9) {
           game.status = 'Invalid rank, suit, or amount!';
         } else {
           const card = { rank: validRank, suit };
-          let added = 0;
-          for (let i = 0; i < amount && game.deck.length > 0; i++) {
-            const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
-            if (deckIdx !== -1) {
-              game.players[playerIdx].hand.push(game.deck.splice(deckIdx, 1)[0]);
-              added++;
+          if (target === 'D') {
+            // Set discard pile
+            if (amount > 1) {
+              game.status = 'Only 1 card can be set to discard!';
+            } else {
+              const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+              if (deckIdx !== -1) {
+                game.discard = game.deck.splice(deckIdx, 1)[0];
+              } else {
+                game.discard = { rank: validRank, suit };
+              }
+              game.moveHistory.unshift(`Set ${card.rank}${suit[0]} as discard`);
+              if (game.moveHistory.length > 3) game.moveHistory.pop();
+              game.status = `Player ${game.turn === 0 ? 'A' : 'B'}\'s turn: Set discard!`;
             }
+          } else {
+            // Add to player hand
+            const playerIdx = target === 'A' ? 0 : 1;
+            let added = 0;
+            for (let i = 0; i < amount; i++) {
+              const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+              if (deckIdx !== -1) {
+                game.players[playerIdx].hand.push(game.deck.splice(deckIdx, 1)[0]);
+                added++;
+              } else {
+                game.players[playerIdx].hand.push({ rank: validRank, suit });
+                added++;
+              }
+            }
+            game.moveHistory.unshift(`Added ${added} ${card.rank}${suit[0]} to Player ${target}`);
+            if (game.moveHistory.length > 3) game.moveHistory.pop();
+            game.status = `Player ${game.turn === 0 ? 'A' : 'B'}\'s turn: Added ${added} card(s)!`;
           }
-          game.moveHistory.unshift(`Added ${added} ${card.rank}${suit[0]} to Player ${playerChar.toUpperCase()}${added < amount ? ' (deck limited)' : ''}`);
-          if (game.moveHistory.length > 3) game.moveHistory.pop();
-          game.status = `Player ${game.turn === 0 ? 'A' : 'B'}\'s turn: Added ${added} card(s)!`;
         }
       }
     } else if (move === 'draw') {
@@ -316,6 +338,30 @@ async function handler(req, res) {
                              (cards.length === 5 && allOdd ? 'odd only' : 'multi'))))))));
           game.lastPlayCount = cards.length;
 
+          // Ruler Abilities
+          let rulerEffectMessage = null;
+          if (cards.length === 1) {
+            const cardRank = cards[0].rank;
+            if ((rulerRank === '6' || (rulerRank === 'K' && opponentRank === '6')) && cardRank === '6') {
+              const opponentHandSize = game.players[1 - game.turn].hand.length;
+              const drawTo7 = Math.max(0, 7 - opponentHandSize);
+              const actualDraw = Math.min(drawTo7, game.deck.length);
+              if (actualDraw > 0) {
+                game.players[1 - game.turn].hand.push(...game.deck.splice(0, actualDraw));
+                rulerEffectMessage = `Player ${game.turn === 0 ? 'B' : 'A'} drew ${actualDraw} (Ruler 6: Nightmare)`;
+              }
+            }
+            if ((rulerRank === '8' || (rulerRank === 'K' && opponentRank === '8')) && cardRank === '8' && game.players[1 - game.turn].hand.length <= 3) {
+              const actualDraw = Math.min(2, game.deck.length);
+              if (actualDraw > 0) {
+                game.players[1 - game.turn].hand.push(...game.deck.splice(0, actualDraw));
+                rulerEffectMessage = `Player ${game.turn === 0 ? 'B' : 'A'} drew ${actualDraw} (Ruler 8: Seeing Red)`;
+              }
+            }
+            if (rulerEffectMessage) game.moveHistory.unshift(rulerEffectMessage);
+          }
+
+          // Pair Abilities
           let pairEffectMessage = null;
           if (isPair) {
             game.pairEffect = cards[0].rank;
