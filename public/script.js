@@ -47,10 +47,8 @@ const rulerAbilities = {
 
 async function fetchGame(move = '', reset = false) {
   const url = reset ? `/api/game?session=${sessionId}&reset=true` : move ? `/api/game?session=${sessionId}&move=${move}` : `/api/game?session=${sessionId}`;
-  console.log(`Fetching: ${url}`);
   const res = await fetch(url, { method: move || reset ? 'POST' : 'GET' });
   data = await res.json();
-  console.log('Received:', JSON.stringify(data));
   updateDisplay(data);
 }
 
@@ -86,6 +84,7 @@ function updateDisplay(data) {
   document.getElementById('moveHistory').textContent = (data.moveHistory || []).join(' | ') || 'None';
   document.getElementById('deckSize').textContent = data.deckSize || '?';
   document.getElementById('draw-button').style.display = data.canPlay ? 'none' : 'inline';
+  document.getElementById('play-button').disabled = selectedCards.length === 0;
   
   if (data.phase === 'over') alert(data.status);
   if (data.pairEffect) document.getElementById('status').textContent += ` (Pair ${data.pairEffect} active)`;
@@ -115,17 +114,13 @@ function updateDisplay(data) {
 function toggleCard(card) {
   if (data.phase === 'setup') {
     selectedCards = [card];
-    fetchGame();
-  } else if (data.turn === 'A' && data.playerAHand.some(c => `${c.rank}${c.suit[0]}` === card) ||
-             data.turn === 'B' && data.playerBHand.some(c => `${c.rank}${c.suit[0]}` === card)) {
+  } else if ((data.turn === 'A' && data.playerAHand.some(c => `${c.rank}${c.suit[0]}` === card)) ||
+             (data.turn === 'B' && data.playerBHand.some(c => `${c.rank}${c.suit[0]}` === card))) {
     const index = selectedCards.indexOf(card);
-    if (index === -1) {
-      selectedCards.push(card);
-    } else {
-      selectedCards.splice(index, 1);
-    }
-    fetchGame();
+    if (index === -1) selectedCards.push(card);
+    else selectedCards.splice(index, 1);
   }
+  fetchGame();
 }
 
 function showRulerAbilities(player, selectedCard = null) {
