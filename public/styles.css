@@ -32,6 +32,11 @@ button {
   padding: 5px 10px;
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 #cardInput {
   padding: 5px;
   width: 150px;
