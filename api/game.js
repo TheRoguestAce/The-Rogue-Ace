@@ -3,7 +3,7 @@ const gameStates = {};
 async function handler(req, res) {
   const { method, query } = req;
   const sessionId = query.session || 'default';
-  const playerCount = parseInt(query.players) || 2; // Default to 2 players, adjustable via query
+  const playerCount = parseInt(query.players) || 2;
   console.log(`[${method}] Session: ${sessionId}, Players: ${playerCount}`);
 
   const suits = ['Diamonds', 'Hearts', 'Spades', 'Clubs'];
@@ -28,7 +28,7 @@ async function handler(req, res) {
     fortCard: null,
     fortRank: null,
     extraTurn: false,
-    skipNext: null, // New: Tracks player to skip (null or player index)
+    skipNext: null,
     wins: Array(playerCount).fill(0)
   };
 
@@ -59,6 +59,10 @@ async function handler(req, res) {
 
   function getOpponents(currentPlayer) {
     return game.players.map((_, idx) => idx).filter(idx => idx !== currentPlayer);
+  }
+
+  function getPlayerLabel(index) {
+    return String.fromCharCode(65 + index); // A, B, C, etc.
   }
 
   function isValidPlay(cards, top) {
@@ -137,13 +141,10 @@ async function handler(req, res) {
 
     // Pair (including Strike)
     if (cards.length === 2) {
-      // True pair
       if (isPair) return cards.every(card => isValidPlay([card], top));
-      // Strike: Two valid cards treated as a pair with Clubs ruler and 7+ cards
       if ((rulerSuit === 'Clubs' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Clubs')) && game.players[game.turn].hand.length >= 7) {
         return cards.every(card => isValidPlay([card], top));
       }
-      // Diamond Storm
       if ((rulerSuit === 'Diamonds' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Diamonds')) && cards.some(c => c.suit === 'Diamonds') && !isPair) return true;
     }
 
@@ -230,7 +231,7 @@ async function handler(req, res) {
     if (reset === 'true') {
       game = {
         deck: shuffle([...deck]),
-        discard: game.deck.length ? game.deck.shift() : null,
+        discard: null,
         discardPile: [],
         players: Array(playerCount).fill().map(() => ({ hand: dealHand(8), ruler: null })),
         turn: 0,
@@ -252,7 +253,7 @@ async function handler(req, res) {
     } else if (addCards) {
       const match = addCards.match(/^([A2-9JQK]|10)([DHSC])([A-Z])$/i);
       if (!match) {
-        game.status = 'Invalid card code! Use e.g., "8DA" (A), "KSD" (discard), or "3HB" (B)';
+        game.status = 'Invalid card code! Use e.g., "8DA" (A), "KSD" (discard)';
       } else {
         const [_, rank, suitChar, targetChar] = match;
         const suit = suits.find(s => s[0].toUpperCase() === suitChar.toUpperCase());
@@ -273,9 +274,9 @@ async function handler(req, res) {
               game.discard = { rank: validRank, suit };
             }
             game.moveHistory.unshift(`Set ${card.rank}${suit[0]} as discard`);
-            game.status = `Player ${String.fromCharCode(65 + game.turn)}\'s turn: Set discard!`;
+            game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: Set discard!`;
           } else {
-            const playerIdx = target.charCodeAt(0) - 65; // A=0, B=1, etc.
+            const playerIdx = target.charCodeAt(0) - 65;
             if (playerIdx >= 0 && playerIdx < playerCount) {
               const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
               if (deckIdx !== -1) {
@@ -284,7 +285,7 @@ async function handler(req, res) {
                 game.players[playerIdx].hand.push({ rank: validRank, suit });
               }
               game.moveHistory.unshift(`Added ${card.rank}${suit[0]} to Player ${target}`);
-              game.status = `Player ${String.fromCharCode(65 + game.turn)}\'s turn: Added card!`;
+              game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: Added card!`;
             } else {
               game.status = 'Invalid player target!';
             }
@@ -296,14 +297,14 @@ async function handler(req, res) {
       const drawCount = game.fortActive && game.turn !== game.pairEffectOwner ? 2 : (game.fortActive ? 1 : 2);
       const actualDraw = Math.min(drawCount, game.deck.length);
       game.players[game.turn].hand.push(...game.deck.splice(0, actualDraw));
-      game.moveHistory.unshift(`Player ${String.fromCharCode(65 + game.turn)} drew ${actualDraw}${game.fortActive && game.turn !== game.pairEffectOwner ? ' (fort)' : ''}`);
-      game.turn = (game.turn + 1) % playerCount;
+      game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} drew ${actualDraw}${game.fortActive && game.turn !== game.pairEffectOwner ? ' (fort)' : ''}`);
+      game.turn = (game.turn + 1) % game.players.length;
       if (game.skipNext === game.turn) {
-        game.moveHistory.unshift(`Player ${String.fromCharCode(65 + game.turn)} skipped (Pair 6)`);
-        game.turn = (game.turn + 1) % playerCount;
+        game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+        game.turn = (game.turn + 1) % game.players.length;
         game.skipNext = null;
       }
-      game.status = `Player ${String.fromCharCode(65 + game.turn)}\'s turn!`;
+      game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
     } else if (move) {
       const cardStrings = move.split(',');
       const cards = cardStrings.map(cs => {
@@ -328,14 +329,14 @@ async function handler(req, res) {
           } else {
             game.players[game.turn].ruler = game.players[game.turn].hand.splice(idx, 1)[0];
             if (game.players.some(p => !p.ruler)) {
-              game.turn = (game.turn + 1) % playerCount;
-              game.status = `Player ${String.fromCharCode(65 + game.turn)}\'s turn: Pick your ruler!`;
+              game.turn = (game.turn + 1) % game.players.length;
+              game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: Pick your ruler!`;
             } else {
               game.discard = game.deck.length ? game.deck.shift() : null;
               game.phase = 'play';
-              game.turn = (game.turn + 1) % playerCount;
-              game.status = `Player ${String.fromCharCode(65 + game.turn)}\'s turn!`;
-              game.moveHistory = [`Player ${String.fromCharCode(65 + game.turn)} set ruler ${game.players[game.turn].ruler.rank}${game.players[game.turn].ruler.suit[0]}`];
+              game.turn = (game.turn + 1) % game.players.length;
+              game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+              game.moveHistory = [`Player ${getPlayerLabel(game.turn)} set ruler ${game.players[game.turn].ruler.rank}${game.players[game.turn].ruler.suit[0]}`];
             }
           }
         }
@@ -402,7 +403,7 @@ async function handler(req, res) {
             if ((rulerRank === '9' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '9')) && cardRank === '9' && game.players[game.turn].hand.length > 5) {
               const discardCount = game.players[game.turn].hand.length - 5;
               game.discardPile.push(...game.players[game.turn].hand.splice(0, discardCount));
-              rulerEffectMessage = `Player ${String.fromCharCode(65 + game.turn)} discarded to 5 (Ruler 9: Reverse Nightmare)`;
+              rulerEffectMessage = `Player ${getPlayerLabel(game.turn)} discarded to 5 (Ruler 9: Reverse Nightmare)`;
             }
             if ((rulerRank === 'Q' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'Q')) && cardRank === 'K') {
               const drawQ = Math.min(1, game.deck.length);
@@ -470,8 +471,8 @@ async function handler(req, res) {
               case '6':
                 const skipIdx = opponents[Math.floor(Math.random() * opponents.length)];
                 game.skipNext = skipIdx;
-                pairEffectMessage = `Player ${String.fromCharCode(65 + skipIdx)}’s next turn skipped (Pair 6: Devilish Stare)`;
-                game.extraTurn = true; // Give player another turn
+                pairEffectMessage = `Player ${getPlayerLabel(skipIdx)}’s next turn skipped (Pair 6: Devilish Stare)`;
+                game.extraTurn = true;
                 break;
               case '7':
                 if (game.deck.length > 0) {
@@ -511,7 +512,7 @@ async function handler(req, res) {
             if (pairEffectMessage) game.moveHistory.unshift(pairEffectMessage);
           }
 
-          // ToaK
+          // ToaK Abilities
           if (isToaK) {
             if (cards[0].rank === 'A') {
               const aceDraw = Math.min(8, game.deck.length);
@@ -549,7 +550,7 @@ async function handler(req, res) {
           }
 
           const effectName = getActiveEffectName();
-          const playMessage = `Player ${String.fromCharCode(65 + game.turn)} played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}${effectName ? ` (${effectName})` : ''}`;
+          const playMessage = `Player ${getPlayerLabel(game.turn)} played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}${effectName ? ` (${effectName})` : ''}`;
           game.moveHistory.unshift(playMessage);
           if (game.moveHistory.length > 3) game.moveHistory.pop();
 
@@ -562,22 +563,22 @@ async function handler(req, res) {
               opponents.forEach(idx => game.players[idx].hand = dealHand(7));
               game.players[game.turn].hand = dealHand(5);
               game.phase = 'play';
-              game.status = `Player ${String.fromCharCode(65 + game.turn)} wins! Replay with ${rulerRank === 'K' ? 'Ruler K' : 'Ace-Clubs'}!`;
+              game.status = `Player ${getPlayerLabel(game.turn)} wins! Replay with ${rulerRank === 'K' ? 'Ruler K' : 'Ace-Clubs'}!`;
             } else {
-              game.status = `Player ${String.fromCharCode(65 + game.turn)} wins! Reset to continue.`;
+              game.status = `Player ${getPlayerLabel(game.turn)} wins! Reset to continue.`;
               game.phase = 'over';
             }
           } else if (game.extraTurn && (cards[0].rank === '8' || cards[0].rank === 'Q' || cards[0].rank === '6') && (isPair || isStrikePair)) {
-            game.status = `Player ${String.fromCharCode(65 + game.turn)}\'s turn: ${cards[0].rank === '8' ? 'Play again and set discard!' : (cards[0].rank === '6' ? 'Extra turn!' : 'Pick a card to discard!')}`;
+            game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: ${cards[0].rank === '8' ? 'Play again and set discard!' : (cards[0].rank === '6' ? 'Extra turn!' : 'Pick a card to discard!')}`;
             game.extraTurn = false;
           } else {
-            game.turn = (game.turn + 1) % playerCount;
+            game.turn = (game.turn + 1) % game.players.length;
             if (game.skipNext === game.turn) {
-              game.moveHistory.unshift(`Player ${String.fromCharCode(65 + game.turn)} skipped (Pair 6)`);
-              game.turn = (game.turn + 1) % playerCount;
+              game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+              game.turn = (game.turn + 1) % game.players.length;
               game.skipNext = null;
             }
-            game.status = `Player ${String.fromCharCode(65 + game.turn)}\'s turn!`;
+            game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
           }
         }
       }
@@ -589,14 +590,13 @@ async function handler(req, res) {
 
   res.status(200).json({
     discard: game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None',
-    players: game.players.map((p, i) => ({
-      hand: p.hand,
-      ruler: p.ruler ? `${p.ruler.rank}${p.ruler.suit[0]}` : 'None',
-      id: String.fromCharCode(65 + i)
-    })),
+    playerAHand: game.players[0].hand,
+    playerBHand: game.players[1].hand,
+    playerARuler: game.players[0].ruler ? `${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}` : 'None',
+    playerBRuler: game.players[1].ruler ? `${game.players[1].ruler.rank}${game.players[1].ruler.suit[0]}` : 'None',
     status: game.status,
     phase: game.phase,
-    turn: String.fromCharCode(65 + game.turn),
+    turn: getPlayerLabel(game.turn),
     session: sessionId,
     moveHistory: game.moveHistory,
     canPlay: game.canPlay,
@@ -604,7 +604,8 @@ async function handler(req, res) {
     fortActive: game.fortActive,
     fortRank: game.fortRank,
     deckSize: game.deck.length,
-    skipNext: game.skipNext !== null ? String.fromCharCode(65 + game.skipNext) : null
+    skipNext: game.skipNext !== null ? getPlayerLabel(game.skipNext) : null,
+    totalPlayers: game.players.length
   });
 }
 
