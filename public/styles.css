@@ -20,11 +20,11 @@ body {
 }
 
 .selected {
-  background: #ffd700; /* Gold background from your old styles */
+  background: #ffd700;
 }
 
 #status {
-  color: #d90429; /* Red status text from your old styles */
+  color: #d90429;
 }
 
 button {
@@ -42,4 +42,9 @@ button {
   margin: 5px;
   padding: 5px;
   background-color: #f0f0f0;
+}
+
+#playerARuler, #playerBRuler {
+  cursor: pointer;
+  text-decoration: underline;
 }
