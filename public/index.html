@@ -14,13 +14,13 @@
     <div>Discard: <span id="discard">None</span></div>
     <div>Player A Hand: <span id="playerAHand">[]</span></div>
     <div>Player B Hand: <span id="playerBHand">[]</span></div>
-    <div>Player A Ruler: <span id="playerARuler">None</span></div>
-    <div>Player B Ruler: <span id="playerBRuler">None</span></div>
+    <div>Player A Ruler: <span id="playerARuler" onclick="showRulerAbilities('playerA')">None</span></div>
+    <div>Player B Ruler: <span id="playerBRuler" onclick="showRulerAbilities('playerB')">None</span></div>
     <div>Move History: <span id="moveHistory">None</span></div>
     <div>Deck Size: <span id="deckSize">?</span></div>
     <div id="ruler-abilities" style="display: none;"></div>
     <div>
-      <input id="cardInput" type="text" placeholder="e.g., 18DA (1 8D to A)">
+      <input id="cardInput" type="text" placeholder="e.g., 18DA (A), 1KSD (discard)">
       <button id="addCardsBtn">Add Cards</button>
       <button id="draw-button">Draw</button>
       <button onclick="playSelected()">Play</button>
