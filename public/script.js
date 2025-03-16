@@ -45,10 +45,14 @@ const rulerAbilities = {
   }
 };
 
-async function fetchGame(move = '', reset = false) {
-  const url = reset ? `/api/game?session=${sessionId}&reset=true` : move ? `/api/game?session=${sessionId}&move=${move}` : `/api/game?session=${sessionId}`;
+async function fetchGame(move = '', reset = false, addCards = null) {
+  let url = `/api/game?session=${sessionId}`;
+  if (reset) url += '&reset=true';
+  else if (move) url += `&move=${move}`;
+  else if (addCards) url += `&addCards=${addCards}`;
+  
   try {
-    const res = await fetch(url, { method: move || reset ? 'POST' : 'GET' });
+    const res = await fetch(url, { method: move || reset || addCards ? 'POST' : 'GET' });
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
     data = await res.json();
     updateDisplay(data);
@@ -122,7 +126,7 @@ function playSelected() {
 function addCards() {
   const input = document.getElementById('cardInput').value.trim();
   if (input) {
-    fetchGame(null, false, { addCards: input });
+    fetchGame(null, false, input);
     document.getElementById('cardInput').value = '';
   }
 }
@@ -150,5 +154,4 @@ function showRulerAbilities(player, card = null) {
   abilitiesDiv.style.display = abilitiesText ? 'block' : 'none';
 }
 
-// Initial load
 fetchGame();
