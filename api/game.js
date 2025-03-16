@@ -1,6 +1,6 @@
 const gameStates = {};
 
-async function handler(req, res) {
+export default async function handler(req, res) {
   const { method, query } = req;
   const sessionId = query.session || 'default';
   const playerCount = parseInt(query.players) || 2;
@@ -62,7 +62,7 @@ async function handler(req, res) {
   }
 
   function getPlayerLabel(index) {
-    return String.fromCharCode(65 + index); // A, B, C, etc.
+    return String.fromCharCode(65 + index);
   }
 
   function isValidPlay(cards, top) {
@@ -76,7 +76,6 @@ async function handler(req, res) {
     const isToaK = cards.length === 3 && cards.every(c => c.rank === cards[0].rank);
     const topValue = top ? rankValue(top.rank) : 0;
 
-    // Fort restrictions
     if (game.fortActive && game.turn !== game.pairEffectOwner) {
       if (cards.length === 1) return false;
       if (isPair && game.fortRank) {
@@ -86,7 +85,6 @@ async function handler(req, res) {
       }
     }
 
-    // Pair effect restrictions
     if (game.pairEffect && game.turn !== game.pairEffectOwner) {
       const checkValue = c => {
         let value = rankValue(c.rank);
@@ -106,7 +104,6 @@ async function handler(req, res) {
       }
     }
 
-    // Empty pile plays
     if (!top && game.phase === 'play') {
       if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds') && cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0)) return !isPair;
       if ((rulerSuit === 'Diamonds' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Diamonds')) && cards.length === 2 && cards.some(c => c.suit === 'Diamonds') && !isPair) return true;
@@ -117,7 +114,6 @@ async function handler(req, res) {
       return false;
     }
 
-    // Single card
     if (cards.length === 1) {
       const card = cards[0];
       const value = rankValue(card.rank);
@@ -139,7 +135,6 @@ async function handler(req, res) {
       return matches;
     }
 
-    // Pair (including Strike)
     if (cards.length === 2) {
       if (isPair) return cards.every(card => isValidPlay([card], top));
       if ((rulerSuit === 'Clubs' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Clubs')) && game.players[game.turn].hand.length >= 7) {
@@ -148,13 +143,10 @@ async function handler(req, res) {
       if ((rulerSuit === 'Diamonds' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Diamonds')) && cards.some(c => c.suit === 'Diamonds') && !isPair) return true;
     }
 
-    // Three of a Kind
     if (isToaK) return cards.every(card => isValidPlay([card], top));
 
-    // Ruler 10
     if ((rulerRank === '10' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank)) && isEven(top.rank)) return !isPair;
 
-    // Multi-card plays
     if (cards.length >= 2 && cards.length <= 4) return cards.every(c => c.rank === cards[0].rank);
 
     if (cards.length === 5) {
@@ -353,7 +345,6 @@ async function handler(req, res) {
           const rulerRank = playerRuler ? playerRuler.rank : null;
           const opponents = getOpponents(game.turn);
 
-          // Play type
           const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
           const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || (cards.length === 5 && values.join(',') === '1,10,11,12,13');
           const isFlush = cards.every(c => c.suit === cards[0].suit);
@@ -366,7 +357,6 @@ async function handler(req, res) {
                              (isStraight ? 'straight' : (isFlush ? 'flush' : 'multi'))))));
           game.lastPlayCount = cards.length;
 
-          // Ruler Abilities
           let rulerEffectMessage = null;
           if (cards.length === 1) {
             const cardRank = cards[0].rank;
@@ -415,7 +405,6 @@ async function handler(req, res) {
             if (rulerEffectMessage) game.moveHistory.unshift(rulerEffectMessage);
           }
 
-          // Multi-card Ruler Abilities
           if ((isPair || isStrikePair) && (rulerRank === '2' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '2'))) {
             const draw2 = Math.min(2, game.deck.length);
             if (draw2 > 0) {
@@ -437,7 +426,6 @@ async function handler(req, res) {
             game.moveHistory.unshift(rulerEffectMessage);
           }
 
-          // Pair Abilities
           let pairEffectMessage = null;
           let defaultDrawMessage = null;
           if (isPair || isStrikePair) {
@@ -512,7 +500,6 @@ async function handler(req, res) {
             if (pairEffectMessage) game.moveHistory.unshift(pairEffectMessage);
           }
 
-          // ToaK Abilities
           if (isToaK) {
             if (cards[0].rank === 'A') {
               const aceDraw = Math.min(8, game.deck.length);
@@ -526,7 +513,6 @@ async function handler(req, res) {
             }
           }
 
-          // Fort Logic
           if (game.fortActive) {
             if (game.turn === game.pairEffectOwner) {
               game.moveHistory.unshift('Fort continues');
@@ -608,5 +594,3 @@ async function handler(req, res) {
     totalPlayers: game.players.length
   });
 }
-
-module.exports = handler;
