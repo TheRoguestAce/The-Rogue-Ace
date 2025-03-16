@@ -1,6 +1,6 @@
 const gameStates = {};
 
-export default async function handler(req, res) {
+function handler(req, res) {
   const { method, query } = req;
   const sessionId = query.session || 'default';
   const playerCount = parseInt(query.players) || 2;
@@ -594,3 +594,5 @@ export default async function handler(req, res) {
     totalPlayers: game.players.length
   });
 }
+
+module.exports = handler;
