@@ -9,7 +9,24 @@ body {
   gap: 10px;
 }
 
-#cardInput, #moveInput {
+.card {
+  padding: 8px 5px;
+  margin: 2px;
+  cursor: pointer;
+  display: inline-block;
+  min-height: 20px;
+}
+
+.card.red {
+  color: red;
+}
+
+.card.selected {
+  background-color: yellow;
+  color: black;
+}
+
+#cardInput {
   padding: 5px;
   width: 150px;
 }
@@ -17,4 +34,10 @@ body {
 button {
   padding: 5px 10px;
   margin-left: 5px;
+}
+
+#ruler-abilities {
+  margin-top: 10px;
+  padding: 5px;
+  background-color: #f0f0f0;
 }
