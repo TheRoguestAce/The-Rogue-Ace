@@ -34,9 +34,9 @@ const rulerAbilities = {
     3: 'Feeling Off: Until you play again, opponent must play odd numbers',
     4: 'Half the Cards: Until you play again, opponent cannot play 8 or above',
     5: 'Medium Rare: Take a 5 from discard, pick a card from deck, reshuffle, set 5 as discard',
-    6: 'Devilish Stare: Opponent skips their next turn',
+    6: 'Devilish Stare: Opponent draws 1 next turn',
     7: 'Double Luck: Look at top 2 cards, replace one of yours, reshuffle',
-    8: 'Good Fortune: Put any card on discard pile, opponent follows it',
+    8: 'Good Fortune: Play again and set discard',
     9: 'Fort: Only pairs or better can play until destroyed or your next turn; draw 1 if no pair',
     10: 'Feeling Right: Until you play again, opponent must play even numbers',
     J: 'High Card: Until you play again, opponent must play 8 or above',
@@ -59,7 +59,6 @@ function updateDisplay(data) {
   const playerAHandElement = document.getElementById('playerAHand');
   const playerBHandElement = document.getElementById('playerBHand');
   
-  // Player A Hand (clickable cards)
   if (data.playerAHand && data.playerAHand.length > 0 && data.turn === 'A') {
     playerAHandElement.innerHTML = data.playerAHand.map(c => {
       const cardStr = `${c.rank}${c.suit[0]}`;
@@ -70,7 +69,6 @@ function updateDisplay(data) {
     playerAHandElement.textContent = data.playerAHand.map(c => `${c.rank}${c.suit[0]}`).join(', ') || 'Empty';
   }
 
-  // Player B Hand (clickable only on B's turn)
   if (data.playerBHand && data.playerBHand.length > 0 && data.turn === 'B') {
     playerBHandElement.innerHTML = data.playerBHand.map(c => {
       const cardStr = `${c.rank}${c.suit[0]}`;
@@ -93,7 +91,6 @@ function updateDisplay(data) {
   if (data.pairEffect) document.getElementById('status').textContent += ` (Pair ${data.pairEffect} active)`;
   if (data.fortActive) document.getElementById('status').textContent += ` (Fort active${data.fortRank ? ` - ${data.fortRank}` : ''})`;
 
-  // Ruler/Pair abilities display
   if (data.phase === 'setup' && selectedCards.length === 1) {
     showRulerAbilities(data.turn === 'A' ? 'playerA' : 'playerB', selectedCards[0]);
   } else if (data.phase === 'play' && selectedCards.length >= 2) {
@@ -118,7 +115,7 @@ function updateDisplay(data) {
 function toggleCard(card) {
   if (data.phase === 'setup') {
     selectedCards = [card];
-    fetchGame(); // Update display to highlight and show ruler abilities
+    fetchGame();
   } else if (data.turn === 'A' && data.playerAHand.some(c => `${c.rank}${c.suit[0]}` === card) ||
              data.turn === 'B' && data.playerBHand.some(c => `${c.rank}${c.suit[0]}` === card)) {
     const index = selectedCards.indexOf(card);
@@ -131,8 +128,9 @@ function toggleCard(card) {
   }
 }
 
-function showRulerAbilities(player, selectedCard) {
-  const ruler = selectedCard;
+function showRulerAbilities(player, selectedCard = null) {
+  const ruler = selectedCard || (player === 'playerA' ? data.playerARuler : data.playerBRuler);
+  if (!ruler || ruler === 'None') return;
   const [rank, suitChar] = [ruler.slice(0, -1), ruler.slice(-1)];
   const suit = Object.keys(rulerAbilities.suits).find(s => s[0] === suitChar);
   const abilityKey = rank === 'A' ? `A-${suit}` : rank;
@@ -162,7 +160,6 @@ function resetGame() {
   fetchGame('', true);
 }
 
-// Add cards functionality
 document.getElementById('addCardsBtn').addEventListener('click', async () => {
   const cardInput = document.getElementById('cardInput').value.trim();
   if (cardInput) {
