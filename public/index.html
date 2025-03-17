@@ -19,9 +19,11 @@
   <div>Move History: <span id="moveHistory">None</span></div>
   <div>Deck Size: <span id="deckSize">?</span></div>
   <button id="play-button" onclick="playSelected()" disabled>Play Selected</button>
-  <button id="draw-button" onclick="fetchGame('draw')" style="display: none;">Draw</button>
   <button id="fort-continue-button" onclick="fortContinue()" style="display: none;">Continue Fort</button>
   <button id="fort-destroy-button" onclick="fortDestroy()" style="display: none;">Destroy Fort</button>
+  <div id="pair5-buttons" style="display: none;"></div>
+  <div id="pair7-buttons" style="display: none;"></div>
+  <div id="pair6-buttons" style="display: none;"></div>
   <div>
     <input id="cardInput" type="text" placeholder="e.g., 8DA (Player A) or KSD (discard)">
     <button onclick="addCards()">Add Card</button>
