@@ -28,6 +28,7 @@ function handler(req, res) {
       fortActive: false,
       fortCard: null,
       fortRank: null,
+      fortOwner: null,
       extraTurn: false,
       skipNext: null,
       wins: Array(playerCount).fill(0),
@@ -40,7 +41,8 @@ function handler(req, res) {
       pair7DeckChoice: null,
       pair7HandChoice: null,
       pair6Pending: false,
-      resetTriggered: false // New flag to prevent infinite resets
+      resetTriggered: false,
+      kingAlternation: null
     };
 
     function shuffle(array) {
@@ -86,10 +88,20 @@ function handler(req, res) {
       return false;
     }
 
+    function hasDuplicateRanks(cards) {
+      const ranks = cards.map(c => c.rank);
+      const rankSet = new Set(ranks);
+      return rankSet.size !== ranks.length;
+    }
+
     function isValidPlay(cards, top) {
-      if (cards.length === 0 || hasDuplicateCards(cards)) return false;
-      console.log('isValidPlay called with top:', top);
-      const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
+      if (cards.length === 0 || hasDuplicateCards(cards)) {
+        console.log('Invalid play: Empty or duplicate cards');
+        return false;
+      }
+      console.log('isValidPlay called with cards:', cards, 'top:', top);
+
+      const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13, '0': 13 }[r] || parseInt(r));
       const isEven = r => rankValue(r) % 2 === 0;
       const playerRuler = game.players[game.turn].ruler;
       const rulerRank = playerRuler ? playerRuler.rank : null;
@@ -97,99 +109,231 @@ function handler(req, res) {
       const isPair = cards.length === 2 && cards[0].rank === cards[1].rank;
       const isToaK = cards.length === 3 && cards.every(c => c.rank === cards[0].rank);
       const topValue = top ? rankValue(top.rank) : 0;
+      const kingRuler = game.players[game.turn].ruler && game.players[game.turn].ruler.rank === 'K';
 
-      if (!top && game.phase === 'play') {
-        if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds')) {
-          if (cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0 && !isPair)) return true;
+      // Base matching logic: Must match suit, rank, or even/odd
+      const baseMatch = (card, top) => {
+        if (!top) return false;
+        const value = rankValue(card.rank);
+        const topVal = rankValue(top.rank);
+        let slicedValue = null;
+        if ((rulerSuit === 'Spades' || (kingRuler && game.players.some(p => p.ruler && p.ruler.suit === 'Spades'))) && card.suit === 'Spades') {
+          slicedValue = Math.ceil(value / 2) - 1;
+          slicedValue = slicedValue === 0 ? 13 : slicedValue;
         }
-        if ((rulerSuit === 'Diamonds' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Diamonds')) && cards.length === 2 && cards.some(c => c.suit === 'Diamonds') && !isPair) return true;
-        if ((rulerRank === '3' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '3')) && cards.length === 1 && cards[0].rank === '7') return true;
-        if ((rulerRank === '7' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '7')) && cards.length === 1 && cards[0].rank === '3') return true;
-        if ((rulerRank === '10' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank))) return !isPair;
-        if (cards.length >= 2 && cards.length <= 4 && cards.every(c => c.rank === cards[0].rank)) return true;
+        const matches = (
+          card.suit === top.suit ||
+          card.rank === top.rank ||
+          (value % 2 === topVal % 2) ||
+          (slicedValue !== null && (slicedValue === topVal || slicedValue % 2 === topVal % 2))
+        );
+        console.log(`BaseMatch: ${card.rank}${card.suit} on ${top.rank}${top.suit} - Suit=${card.suit === top.suit}, Rank=${card.rank === top.rank}, Even/Odd=${value % 2 === topVal % 2}, Sliced=${slicedValue !== null ? slicedValue : 'N/A'}, Matches=${matches}`);
+        return matches;
+      };
+
+      // Empty pile check
+      if (!top && game.phase === 'play') {
+        console.log('Empty pile check');
+        if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds'))) {
+          if (cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0 && !isPair)) {
+            console.log('Valid: Ace of Diamonds allows odd non-face cards');
+            return true;
+          }
+        }
+        if ((rulerSuit === 'Diamonds' || (kingRuler && game.players.some(p => p.ruler && p.ruler.suit === 'Diamonds'))) && cards.length === 2 && cards.some(c => c.suit === 'Diamonds') && !isPair) {
+          console.log('Valid: Diamond Storm allows diamond + another card');
+          return true;
+        }
+        if ((rulerRank === '3' || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === '3'))) && cards.length === 1 && cards[0].rank === '7') {
+          console.log('Valid: Ruler 3 allows playing a 7');
+          return true;
+        }
+        if ((rulerRank === '7' || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === '7'))) && cards.length === 1 && cards[0].rank === '3') {
+          console.log('Valid: Ruler 7 allows playing a 3');
+          return true;
+        }
+        if ((rulerRank === '10' || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === '10'))) && cards.length >= 2 && cards.every(c => isEven(c.rank))) {
+          console.log('Valid: Ruler 10 allows multiple even cards');
+          return !isPair;
+        }
+        if (cards.length >= 2 && cards.length <= 4 && cards.every(c => c.rank === cards[0].rank)) {
+          console.log('Valid: Pair/ToaK/Four of a kind on empty pile');
+          return true;
+        }
+        console.log('Invalid: No special rule applies for empty pile');
         return false;
       }
 
-      if (game.fortActive && game.turn !== game.pairEffectOwner) {
-        if (cards.length === 1) return false;
+      // Fort restrictions
+      if (game.fortActive && game.turn !== game.fortOwner) {
+        if (!isPair && !isToaK) {
+          console.log('Invalid: Fort requires pairs or ToaK');
+          return false;
+        }
         if (isPair && game.fortRank) {
           const fortValue = rankValue(game.fortRank);
           const pairValue = rankValue(cards[0].rank);
+          console.log(`Fort check: Pair ${pairValue} vs Fort ${fortValue}`);
+          if (pairValue > fortValue && game.turn !== game.fortOwner) {
+            game.fortChoicePending = true;
+            game.fortChoicePlayer = game.turn;
+            game.status = `Player ${getPlayerLabel(game.turn)}: Fort pair ${cards[0].rank} > ${game.fortRank}. ?fortChoice=continue or ?fortChoice=destroy`;
+            return true;
+          }
           return pairValue >= 2 && pairValue <= 13;
         }
         return false;
       }
 
+      // Pair effects
       if (game.pairEffect && game.turn !== game.pairEffectOwner) {
         const checkValue = c => {
           let value = rankValue(c.rank);
           if (((rulerSuit === 'Hearts' && c.suit === 'Hearts') || (rulerRank === 'A' && rulerSuit === 'Hearts')) && rulerRank !== 'A') value = rankValue(rulerRank);
-          if ((rulerRank === 'Q' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && game.players[game.turn].ruler.rank === 'Q')) && c.rank === 'K') value = topValue;
+          if ((rulerRank === 'Q' || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'Q'))) && c.rank === 'K') value = topValue;
+          if ((rulerSuit === 'Spades' || (kingRuler && game.players.some(p => p.ruler && p.ruler.suit === 'Spades'))) && c.suit === 'Spades') {
+            const sliced = Math.ceil(value / 2) - 1;
+            value = sliced === 0 ? 13 : sliced;
+          }
           return value;
         };
         const values = cards.map(checkValue);
-        if (game.pairEffect === 'A' && values.some(v => v < 10)) return false;
-        if (game.pairEffect === '3' && values.some(v => v % 2 === 0)) return false;
-        if (game.pairEffect === '4' && values.some(v => v >= 8)) return false;
-        if (game.pairEffect === '10' && values.some(v => v % 2 !== 0)) return false;
-        if (game.pairEffect === 'J' && values.some(v => v < 8)) return false;
+        if (game.pairEffect === 'A' && values.some(v => v < 10)) {
+          console.log('Invalid: Pair A requires 10 or above');
+          return false;
+        }
+        if (game.pairEffect === '3' && values.some(v => v % 2 === 0)) {
+          console.log('Invalid: Pair 3 requires odd numbers');
+          return false;
+        }
+        if (game.pairEffect === '4' && values.some(v => v >= 8)) {
+          console.log('Invalid: Pair 4 prohibits 8 or above');
+          return false;
+        }
+        if (game.pairEffect === '10' && values.some(v => v % 2 !== 0)) {
+          console.log('Invalid: Pair 10 requires even numbers');
+          return false;
+        }
+        if (game.pairEffect === 'J' && values.some(v => v < 8)) {
+          console.log('Invalid: Pair J requires 8 or above');
+          return false;
+        }
         if (game.pairEffect === 'K') {
-          const lastWasEven = game.moveHistory.length > 0 && game.discard && rankValue(game.discard.rank) % 2 === 0;
-          return lastWasEven ? values.every(v => v % 2 !== 0) : values.every(v => v % 2 === 0);
+          const expectedEven = game.kingAlternation === null ? true : game.kingAlternation;
+          const isValid = expectedEven ? values.every(v => v % 2 === 0) : values.every(v => v % 2 !== 0);
+          console.log(`Pair K check: Expected ${expectedEven ? 'even' : 'odd'}, Got ${values}`);
+          return isValid;
         }
       }
 
+      // Single card plays
       if (cards.length === 1) {
         const card = cards[0];
         const value = rankValue(card.rank);
         const rulerValue = ((rulerSuit === 'Hearts' && card.suit === 'Hearts') || (rulerRank === 'A' && rulerSuit === 'Hearts')) && rulerRank !== 'A' ? rankValue(rulerRank) : null;
-        const slicedValue = (rulerSuit === 'Spades' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Spades')) && card.suit === 'Spades' ? Math.ceil(value / 2) - 1 : null;
-        const pocketValue = (rulerRank === 'A' && rulerSuit === 'Spades') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Spades') ? Math.floor(value / 2) : null;
-        let matches = top && top.suit && top.rank && (card.suit === top.suit || card.rank === top.rank || value % 2 === topValue % 2);
+        const slicedValue = (rulerSuit === 'Spades' || (kingRuler && game.players.some(p => p.ruler && p.ruler.suit === 'Spades'))) && card.suit === 'Spades' ? Math.ceil(value / 2) - 1 : null;
+        const slicedAdjusted = slicedValue === 0 ? 13 : slicedValue;
+        const pocketValue = (rulerRank === 'A' && rulerSuit === 'Spades') || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Spades')) ? Math.floor(value / 2) : null;
+        let matches = baseMatch(card, top);
 
-        if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds')) matches = !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0;
-        if ((rulerRank === 'A' && rulerSuit === 'Hearts') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Hearts')) matches = true;
-        if ((rulerRank === 'A' && rulerSuit === 'Spades') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Spades')) matches = matches || (top && top.rank && pocketValue === topValue);
-        if ((rulerRank === 'A' && rulerSuit === 'Clubs') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Clubs')) matches = matches || (top && top.rank && Math.floor(value / 2) === topValue);
-        if ((rulerRank === '5' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '5')) && ['J', 'Q', 'K'].includes(card.rank)) matches = top && top.rank && topValue === 5;
-        if ((rulerRank === '10' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '10')) && isEven(card.rank) && top && top.rank && isEven(top.rank)) matches = true;
-        if ((rulerRank === 'J' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'J')) && ['J', 'Q', 'K', 'A'].includes(card.rank)) matches = top && top.rank && ['J', 'Q', 'K', 'A'].includes(top.rank);
-        if ((rulerRank === 'Q' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'Q')) && card.rank === 'K') matches = true;
-        if ((rulerSuit === 'Hearts' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Hearts')) && rulerRank !== 'A') matches = matches || (top && top.rank && (rulerValue === topValue || rulerValue % 2 === topValue % 2));
-        if ((rulerSuit === 'Spades' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Spades')) && card.suit === 'Spades') matches = matches || (top && top.rank && (slicedValue === topValue || slicedValue % 2 === topValue % 2));
+        // Ruler effects that override base matching
+        if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds'))) {
+          matches = !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0;
+        }
+        if ((rulerRank === 'A' && rulerSuit === 'Hearts') || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Hearts'))) {
+          matches = true;
+        }
+        if ((rulerRank === 'A' && rulerSuit === 'Spades') || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Spades'))) {
+          matches = matches || (top && top.rank && pocketValue === topValue);
+        }
+        if ((rulerRank === 'A' && rulerSuit === 'Clubs') || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Clubs'))) {
+          matches = matches || (top && top.rank && Math.floor(value / 2) === topValue);
+        }
+        if ((rulerRank === '5' || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === '5'))) && ['J', 'Q', 'K'].includes(card.rank)) {
+          matches = top && top.rank && topValue === 5;
+        }
+        if ((rulerRank === '10' || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === '10'))) && isEven(card.rank) && top && top.rank && isEven(top.rank)) {
+          matches = true;
+        }
+        if ((rulerRank === 'J' || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'J'))) && ['J', 'Q', 'K', 'A'].includes(card.rank)) {
+          matches = top && top.rank && ['J', 'Q', 'K', 'A'].includes(top.rank);
+        }
+        if ((rulerRank === 'Q' || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'Q'))) && card.rank === 'K') {
+          matches = true;
+        }
+        if ((rulerSuit === 'Hearts' || (kingRuler && game.players.some(p => p.ruler && p.ruler.suit === 'Hearts'))) && rulerRank !== 'A') {
+          matches = matches || (top && top.rank && (rulerValue === topValue || rulerValue % 2 === topValue % 2));
+        }
+        if ((rulerSuit === 'Spades' || (kingRuler && game.players.some(p => p.ruler && p.ruler.suit === 'Spades'))) && card.suit === 'Spades') {
+          matches = matches || (top && top.rank && (slicedAdjusted === topValue || slicedAdjusted % 2 === topValue % 2));
+        }
+        console.log(`Single card play: ${card.rank}${card.suit}, Matches: ${matches}`);
         return !!matches;
       }
 
+      // Two-card plays
       if (cards.length === 2) {
-        if (isPair) return cards.every(card => isValidPlay([card], top));
-        if ((rulerSuit === 'Clubs' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Clubs')) && game.players[game.turn].hand.length >= 5) {
-          return cards.every(card => isValidPlay([card], top));
+        if (isPair) {
+          const validSingle = cards.every(card => isValidPlay([card], top));
+          console.log(`Pair play: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}, Valid as singles: ${validSingle}`);
+          return validSingle;
         }
-        if ((rulerSuit === 'Diamonds' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Diamonds')) && cards.some(c => c.suit === 'Diamonds') && !isPair) return true;
+        if ((rulerSuit === 'Clubs' || (kingRuler && game.players.some(p => p.ruler && p.ruler.suit === 'Clubs'))) && game.players[game.turn].hand.length >= 5) {
+          const validStrike = cards.every(card => isValidPlay([card], top));
+          console.log(`Strike play: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}, Valid: ${validStrike}`);
+          return validStrike;
+        }
+        if ((rulerSuit === 'Diamonds' || (kingRuler && game.players.some(p => p.ruler && p.ruler.suit === 'Diamonds'))) && cards.some(c => c.suit === 'Diamonds') && !isPair) {
+          console.log('Valid: Diamond Storm allows diamond + another card');
+          return true;
+        }
+        console.log('Invalid: Two cards must be a pair or special ruler play');
+        return false;
       }
 
-      if (isToaK) return cards.every(card => isValidPlay([card], top));
+      // Three of a kind
+      if (isToaK) {
+        const validToaK = cards.every(card => isValidPlay([card], top));
+        console.log(`ToaK play: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}, Valid: ${validToaK}`);
+        return validToaK;
+      }
 
-      if ((rulerRank === '10' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '10')) && cards.length >= 2 && cards.every(c => isEven(c.rank)) && top && top.rank && isEven(top.rank)) return !isPair;
+      // Ruler 10 even stack
+      if ((rulerRank === '10' || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === '10'))) && cards.length >= 2 && cards.every(c => isEven(c.rank)) && top && top.rank && isEven(top.rank)) {
+        console.log('Valid: Ruler 10 allows even stack');
+        return !isPair;
+      }
 
-      if (cards.length >= 2 && cards.length <= 4) return cards.every(c => c.rank === cards[0].rank && isValidPlay([c], top));
+      // Multi-card plays (2-4 of a kind)
+      if (cards.length >= 2 && cards.length <= 4) {
+        const validMulti = cards.every(c => c.rank === cards[0].rank && isValidPlay([c], top));
+        console.log(`Multi play: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}, Valid: ${validMulti}`);
+        return validMulti;
+      }
 
+      // Five-card plays
       if (cards.length === 5) {
         const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
         const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || (values.join(',') === '1,10,11,12,13');
         const isFlush = cards.every(c => c.suit === cards[0].suit);
         const allEven = cards.every(c => isEven(c.rank));
         const allOdd = cards.every(c => !isEven(c.rank));
-        return isStraight || isFlush || allEven || allOdd;
+        const validFive = (isStraight || isFlush || allEven || allOdd) && cards.some(c => baseMatch(c, top));
+        console.log(`Five-card play: Straight=${isStraight}, Flush=${isFlush}, AllEven=${allEven}, AllOdd=${allOdd}, Matches Top=${cards.some(c => baseMatch(c, top))}, Valid: ${validFive}`);
+        return validFive;
       }
 
+      // Larger plays (straight or flush)
       if (cards.length > 5) {
         const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
-        const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1);
+        const isStraight = !hasDuplicateRanks(cards) && values.every((v, i) => i === 0 || v === values[i - 1] + 1);
         const isFlush = cards.every(c => c.suit === cards[0].suit);
-        return isStraight || isFlush;
+        const validLarge = (isStraight || isFlush) && cards.some(c => baseMatch(c, top));
+        console.log(`Large play: Straight=${isStraight}, Flush=${isFlush}, Matches Top=${cards.some(c => baseMatch(c, top))}, Valid: ${validLarge}`);
+        return validLarge;
       }
 
+      console.log('Invalid play: No matching rule');
       return false;
     }
 
@@ -197,7 +341,7 @@ function handler(req, res) {
       suits: {
         Diamonds: 'Diamond Storm: Play a diamond card + another card (not a pair)',
         Hearts: 'Campfire: Cards count as both their rank and this heart’s rank (no pairs)',
-        Spades: 'Sliced: Spades count as both their rank and rank ÷ 2 rounded up - 1 (pairs OK)',
+        Spades: 'Sliced: Spades count as both their rank and rank ÷ 2 rounded up - 1 (2 = King)',
         Clubs: 'Strike: Play two valid cards as a pair if 5+ cards in hand (3+ remain after play)'
       },
       ranks: {
@@ -212,7 +356,7 @@ function handler(req, res) {
         10: 'Perfection: Play multiple even cards on an even card or empty pile (no pairs)',
         J: 'Servant: J/Q/K/A count as each other (pairs OK)',
         Q: 'Ruler’s Touch: Kings are wild cards, counting as every rank, all opponents draw 1 (pairs OK)',
-        K: 'Ruler of Rulers: Win reshuffles deck, opponents draw 7, winner draws 5',
+        K: 'Ruler of Rulers: Gain abilities of all other rulers on field',
         'A-Diamonds': 'Perfect Card: Odd non-face cards (A,3,5,7,9) playable anytime (no pairs)',
         'A-Hearts': 'Otherworldly Touch: Hearts are wild cards, counting as every rank (no pairs)',
         'A-Spades': 'Pocket Knife: All cards count as both their rank and half rank rounded down (pairs OK)',
@@ -223,15 +367,15 @@ function handler(req, res) {
         2: 'Pair Pair: Opponent draws 1 extra card on top of the normal 2',
         3: 'Feeling Off: Until you play again, all opponents must play odd numbers',
         4: 'Half the Cards: Until you play again, all opponents cannot play 8 or above',
-        5: 'Medium Rare: See top 5 discard pile cards, swap one with a hand card',
-        6: 'Devilish Stare: Pick one opponent, they skip their next turn',
+        5: 'Medium Rare: See last 5 unique discard pile cards, swap one with a hand card',
+        6: 'Devilish Stare: Pick one opponent, they skip their next turn once',
         7: 'Double Luck: See top 2 deck cards, swap one with a hand card',
         8: 'Good Fortune: Play again and set discard (choose either card)',
         9: 'Fort: Only pairs or better can play until destroyed or your next turn; all opponents draw 1 if no pair',
         10: 'Feeling Right: Until you play again, all opponents must play even numbers',
         J: 'High Card: Until you play again, all opponents must play 8 or above',
         Q: 'Complaint: All opponents draw 1, play again and set any discard (choose either card)',
-        K: 'I am your Father: Until you play again, all opponents alternate even/odd (K/J odd)'
+        K: 'I am your Father: Until you play again, all opponents alternate even/odd (start even, end on your turn)'
       }
     };
 
@@ -277,6 +421,7 @@ function handler(req, res) {
           fortActive: false,
           fortCard: null,
           fortRank: null,
+          fortOwner: null,
           extraTurn: false,
           skipNext: null,
           wins: Array(playerCount).fill(0),
@@ -289,7 +434,8 @@ function handler(req, res) {
           pair7DeckChoice: null,
           pair7HandChoice: null,
           pair6Pending: false,
-          resetTriggered: false
+          resetTriggered: false,
+          kingAlternation: null
         };
       } else if (addCards) {
         const match = addCards.match(/^([A2-9JQK]|10)([DHSC])([A-Z])$/i);
@@ -324,11 +470,11 @@ function handler(req, res) {
           }
         }
       } else if (move === 'draw' && game.phase === 'play') {
-        const drawCount = game.fortActive && game.turn !== game.pairEffectOwner ? 1 : 2;
+        const drawCount = game.fortActive && game.turn !== game.fortOwner ? 1 : 2;
         const actualDraw = Math.min(drawCount, game.deck.length);
         if (actualDraw > 0) {
           game.players[game.turn].hand.push(...game.deck.splice(0, actualDraw));
-          game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} drew ${actualDraw}${game.fortActive && game.turn !== game.pairEffectOwner ? ' (fort)' : ''}`);
+          game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} drew ${actualDraw}${game.fortActive && game.turn !== game.fortOwner ? ' (fort)' : ''}`);
           game.turn = (game.turn + 1) % game.players.length;
           if (game.skipNext === game.turn) {
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
@@ -338,19 +484,20 @@ function handler(req, res) {
           game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
         }
       } else if (pair5DiscardChoice && game.pair5Pending) {
-        const topFive = game.discardPile.slice(-5).reverse();
+        const topFive = [...new Map(game.discardPile.slice(-5).map(c => [`${c.rank}${c.suit[0]}`, c])).values()].reverse();
         if (topFive.some(c => `${c.rank}${c.suit[0]}` === pair5DiscardChoice)) {
           game.pair5DiscardChoice = pair5DiscardChoice;
           game.status = `Player ${getPlayerLabel(game.turn)}: Select a hand card to swap with ${pair5DiscardChoice}`;
         }
       } else if (pair5HandChoice && game.pair5Pending && game.pair5DiscardChoice) {
-        const topFive = game.discardPile.slice(-5).reverse();
+        const topFive = [...new Map(game.discardPile.slice(-5).map(c => [`${c.rank}${c.suit[0]}`, c])).values()].reverse();
         const discardIdx = topFive.findIndex(c => `${c.rank}${c.suit[0]}` === game.pair5DiscardChoice);
         const handIdx = game.players[game.turn].hand.findIndex(c => `${c.rank}${c.suit[0]}` === pair5HandChoice);
         if (discardIdx !== -1 && handIdx !== -1) {
           const discardCard = topFive[discardIdx];
           const handCard = game.players[game.turn].hand[handIdx];
-          game.discardPile[game.discardPile.length - 5 + discardIdx] = handCard;
+          const pileIdx = game.discardPile.length - 5 + discardIdx;
+          if (pileIdx >= 0) game.discardPile[pileIdx] = handCard;
           game.players[game.turn].hand[handIdx] = discardCard;
           game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} swapped ${pair5HandChoice} with ${game.pair5DiscardChoice} (Pair 5)`);
           game.pair5Pending = false;
@@ -414,6 +561,7 @@ function handler(req, res) {
             game.fortActive = false;
             game.fortCard = null;
             game.fortRank = null;
+            game.fortOwner = null;
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} destroyed fort`);
           }
           game.fortChoicePending = false;
@@ -427,325 +575,209 @@ function handler(req, res) {
           game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
         }
       } else if (move) {
-        const cardStrings = move.split(',');
-        const cards = cardStrings.map(cs => {
-          const [rank, suitChar] = [cs.slice(0, -1), cs.slice(-1)];
-          const suit = suits.find(s => s[0] === suitChar);
-          return suit && ranks.includes(rank) ? { rank, suit } : null;
-        }).filter(c => c);
-        const isPair = cards.length === 2 && cards[0].rank === cards[1].rank;
-        const isStrikePair = cards.length === 2 && !isPair && game.players[game.turn].ruler && (game.players[game.turn].ruler.suit === 'Clubs' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Clubs')) && game.players[game.turn].hand.length >= 5;
-        const isToaK = cards.length === 3 && cards.every(c => c.rank === cards[0].rank);
-        const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
-
-        if (cards.length === 0 || hasDuplicateCards(cards)) {
-          game.status = 'Invalid selection or duplicate cards!';
+        const cards = move.split(',').map(c => {
+          const rank = c.length === 3 ? c.slice(0, 2) : c[0];
+          const suitChar = c.length === 3 ? c[2] : c[1];
+          const suit = suits.find(s => s[0] === suitChar.toUpperCase());
+          return { rank: rank === '10' ? '10' : ranks.find(r => r === rank.toUpperCase()), suit };
+        });
+        if (cards.some(c => !c.rank || !c.suit)) {
+          game.status = 'Invalid card format in move!';
+        } else if (!game.players[game.turn].hand.some(h => cards.some(c => c.rank === h.rank && c.suit === h.suit)) || hasDuplicateCards(cards)) {
+          game.status = 'Cards not in hand or duplicates in play!';
         } else if (game.phase === 'setup') {
           if (cards.length !== 1) {
-            game.status = 'Pick one ruler!';
+            game.status = 'Pick exactly one card as ruler!';
           } else {
-            const idx = game.players[game.turn].hand.findIndex(c => c.rank === cards[0].rank && c.suit === cards[0].suit);
-            if (idx === -1) {
-              game.status = 'Ruler not in hand!';
-            } else {
-              game.players[game.turn].ruler = game.players[game.turn].hand.splice(idx, 1)[0];
-              if (game.players.some(p => !p.ruler)) {
-                game.turn = (game.turn + 1) % game.players.length;
-                game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: Pick your ruler!`;
-              } else {
-                game.discard = game.deck.length ? game.deck.shift() : null;
-                game.phase = 'play';
-                game.turn = (game.turn + 1) % game.players.length;
-                game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
-                game.moveHistory = [`Player ${getPlayerLabel(game.turn)} set ruler ${game.players[game.turn].ruler.rank}${game.players[game.turn].ruler.suit[0]}`];
-              }
-            }
+            game.players[game.turn].ruler = cards[0];
+            game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} set ruler ${cards[0].rank}${cards[0].suit[0]}`);
+            game.players[game.turn].hand = game.players[game.turn].hand.filter(h => !(h.rank === cards[0].rank && h.suit === cards[0].suit));
+            game.players[game.turn].hand.push(...dealHand(1));
+            game.turn = (game.turn + 1) % game.players.length;
+            game.status = game.players.every(p => p.ruler) ? 'All rulers set! Game starts!' : `Player ${getPlayerLabel(game.turn)}\'s turn: Pick your ruler!`;
+            if (game.players.every(p => p.ruler)) game.phase = 'play';
           }
-        } else if (game.phase === 'play') {
-          const indices = cards.map(card => game.players[game.turn].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit));
-          if (indices.some(i => i === -1)) {
-            game.status = 'Invalid play!';
-          } else {
-            const sortedIndices = indices.sort((a, b) => b - a);
-            const playedCards = sortedIndices.map(i => game.players[game.turn].hand.splice(i, 1)[0]);
-            game.discardPile.push(game.discard);
-            const playerRuler = game.players[game.turn].ruler;
-            const rulerRank = playerRuler ? playerRuler.rank : null;
-            const rulerSuit = playerRuler ? playerRuler.suit : null;
-            const opponents = getOpponents(game.turn);
+        } else if (isValidPlay(cards, game.discard)) {
+          game.players[game.turn].hand = game.players[game.turn].hand.filter(h => !cards.some(c => c.rank === h.rank && c.suit === h.suit));
+          game.discardPile.push(game.discard);
+          game.discard = cards[0];
+          game.lastPlayCount = cards.length;
+          game.lastPlayType = cards.length === 1 ? 'single' : cards.every(c => c.rank === cards[0].rank) ? (cards.length === 2 ? 'pair' : 'multi') : 'stack';
+          const rank = cards[0].rank;
 
-            if (isPair && (cards[0].rank === '8' || cards[0].rank === 'Q')) {
-              if (cards[0].rank === 'Q' || (cards[0].rank === '8' && game.extraTurn)) {
-                game.discard = playedCards[0]; // Allow any card for Pair Q
-              } else {
-                game.discard = playedCards[Math.floor(Math.random() * playedCards.length)];
-              }
-            } else {
-              game.discard = playedCards[0];
+          if (game.lastPlayType === 'pair') {
+            game.pairEffect = rank;
+            game.pairEffectOwner = game.turn;
+            if (rank === '2') {
+              getOpponents(game.turn).forEach(idx => {
+                const drawCount = Math.min(3, game.deck.length);
+                game.players[idx].hand.push(...game.deck.splice(0, drawCount));
+                game.moveHistory.unshift(`Player ${getPlayerLabel(idx)} drew ${drawCount} (Pair 2)`);
+              });
+            } else if (rank === '5') {
+              game.pair5Pending = true;
+              game.status = `Player ${getPlayerLabel(game.turn)}: Pick a discard pile card to swap (?pair5DiscardChoice=card)`;
+              game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
+              res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
+              gameStates[sessionId] = game;
+              return;
+            } else if (rank === '6') {
+              game.pair6Pending = true;
+              game.status = `Player ${getPlayerLabel(game.turn)}: Pick an opponent to skip (?pair6Target=playerIndex)`;
+              game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
+              res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
+              gameStates[sessionId] = game;
+              return;
+            } else if (rank === '7') {
+              game.pair7Pending = true;
+              game.status = `Player ${getPlayerLabel(game.turn)}: Pick a deck card to swap (?pair7DeckChoice=card)`;
+              game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
+              res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
+              gameStates[game.turn] = game;
+              return;
+            } else if (rank === '8') {
+              game.extraTurn = true;
+              game.status = `Player ${getPlayerLabel(game.turn)}: Play again (Pair 8)`;
+            } else if (rank === '9') {
+              game.fortActive = true;
+              game.fortCard = cards[0];
+              game.fortRank = rank;
+              game.fortOwner = game.turn;
+              getOpponents(game.turn).forEach(idx => {
+                if (!game.players[idx].hand.some(c => isValidPlay([c], game.discard))) {
+                  const drawCount = Math.min(1, game.deck.length);
+                  game.players[idx].hand.push(...game.deck.splice(0, drawCount));
+                  game.moveHistory.unshift(`Player ${getPlayerLabel(idx)} drew ${drawCount} (Fort)`);
+                }
+              });
+            } else if (rank === 'Q') {
+              getOpponents(game.turn).forEach(idx => {
+                const drawCount = Math.min(1, game.deck.length);
+                game.players[idx].hand.push(...game.deck.splice(0, drawCount));
+                game.moveHistory.unshift(`Player ${getPlayerLabel(idx)} drew ${drawCount} (Pair Q)`);
+              });
+              game.extraTurn = true;
+              game.status = `Player ${getPlayerLabel(game.turn)}: Play again and set discard (Pair Q)`;
+            } else if (rank === 'K') {
+              game.kingAlternation = true; // Start with even
             }
-
-            const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
-            const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || (cards.length === 5 && values.join(',') === '1,10,11,12,13');
-            const isFlush = cards.every(c => c.suit === cards[0].suit);
-            const allEven = cards.every(c => rankValue(c.rank) % 2 === 0);
-            game.lastPlayType = cards.length === 1 ? 'single' :
-                               ((isPair || isStrikePair) ? 'pair' :
-                               (isToaK ? 'three of a kind' :
-                               (cards.length === 4 && cards.every(c => c.rank === cards[0].rank) ? 'four of a kind' :
-                               (rulerRank === '10' && allEven ? 'even stack' :
-                               (isStraight ? 'straight' : (isFlush ? 'flush' : 'multi'))))));
-            game.lastPlayCount = cards.length;
-
-            let rulerEffectMessage = null;
-            if (cards.length === 1) {
-              const cardRank = cards[0].rank;
-              if ((rulerRank === '3' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '3')) && cardRank === '7') {
-                const draw3 = Math.min(2, game.deck.length);
-                if (draw3 > 0) {
-                  opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, draw3)));
-                  rulerEffectMessage = `All opponents drew ${draw3} (Ruler 3: Lucky Clover)`;
+          } else if (isToaK) {
+            game.fortActive = true;
+            game.fortCard = cards[0];
+            game.fortRank = rank;
+            game.fortOwner = game.turn;
+            getOpponents(game.turn).forEach(idx => {
+              if (!game.players[idx].hand.some(c => isValidPlay([c], game.discard))) {
+                const drawCount = Math.min(1, game.deck.length);
+                game.players[idx].hand.push(...game.deck.splice(0, drawCount));
+                game.moveHistory.unshift(`Player ${getPlayerLabel(idx)} drew ${drawCount} (ToaK Fort)`);
+              }
+            });
+          } else if (game.lastPlayType === 'multi' && cards.length === 4) {
+            game.deck.push(...game.discardPile, game.discard);
+            game.discardPile = [];
+            game.discard = null;
+            getOpponents(game.turn).forEach(idx => {
+              const drawCount = Math.min(7, game.deck.length);
+              game.players[idx].hand.push(...game.deck.splice(0, drawCount));
+              game.moveHistory.unshift(`Player ${getPlayerLabel(idx)} drew ${drawCount} (Four of a Kind)`);
+            });
+            const playerDraw = Math.min(3, game.deck.length);
+            game.players[game.turn].hand.push(...game.deck.splice(0, playerDraw));
+            game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} drew ${playerDraw} (Four of a Kind)`);
+            shuffle(game.deck);
+          } else if (rank === '6') {
+            getOpponents(game.turn).forEach(idx => {
+              const drawCount = Math.max(0, 7 - game.players[idx].hand.length);
+              game.players[idx].hand.push(...game.deck.splice(0, drawCount));
+              game.moveHistory.unshift(`Player ${getPlayerLabel(idx)} drew ${drawCount} to 7 (Ruler 6)`);
+            });
+          } else if (rank === '8' && getOpponents(game.turn).some(idx => game.players[idx].hand.length <= 3)) {
+            getOpponents(game.turn).forEach(idx => {
+              const drawCount = Math.min(2, game.deck.length);
+              game.players[idx].hand.push(...game.deck.splice(0, drawCount));
+              game.moveHistory.unshift(`Player ${getPlayerLabel(idx)} drew ${drawCount} (Ruler 8)`);
+            });
+          } else if (rank === '9') {
+            getOpponents(game.turn).forEach(idx => {
+              if (game.players[idx].ruler && game.players[idx].ruler.rank === '9') {
+                while (game.players[game.turn].hand.length > 5 && game.deck.length > 0) {
+                  game.deck.push(game.players[game.turn].hand.pop());
+                  game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} discarded to 5 (Ruler 9)`);
                 }
               }
-              if ((rulerRank === '6' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '6')) && cardRank === '6') {
-                opponents.forEach(idx => {
-                  const opponentHandSize = game.players[idx].hand.length;
-                  const drawTo7 = Math.max(0, 7 - opponentHandSize);
-                  const actualDraw = Math.min(drawTo7, game.deck.length);
-                  if (actualDraw > 0) game.players[idx].hand.push(...game.deck.splice(0, actualDraw));
+            });
+          }
+
+          game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
+
+          if (game.players[game.turn].hand.length === 0) {
+            game.wins[game.turn]++;
+            getOpponents(game.turn).forEach(idx => {
+              if (game.players[idx].ruler && game.players[idx].ruler.rank === 'A' && game.players[idx].ruler.suit === 'Clubs' && !game.resetTriggered) {
+                game.deck.push(...game.discardPile, game.discard);
+                game.discardPile = [];
+                game.discard = null;
+                shuffle(game.deck);
+                getOpponents(game.turn).forEach(i => {
+                  const drawCount = Math.min(7, game.deck.length);
+                  game.players[i].hand.push(...game.deck.splice(0, drawCount));
+                  game.moveHistory.unshift(`Player ${getPlayerLabel(i)} drew ${drawCount} (Ace of Clubs)`);
                 });
-                rulerEffectMessage = `All opponents drew to 7 (Ruler 6: Nightmare)`;
+                const winnerDraw = Math.min(5, game.deck.length);
+                game.players[game.turn].hand.push(...game.deck.splice(0, winnerDraw));
+                game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} drew ${winnerDraw} (Ace of Clubs)`);
+                game.resetTriggered = true;
+                game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: Ace of Clubs reset!`;
+                res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
+                gameStates[sessionId] = game;
+                return;
               }
-              if ((rulerRank === '7' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '7')) && cardRank === '3') {
-                const draw7 = Math.min(2, game.deck.length);
-                if (draw7 > 0) {
-                  opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, draw7)));
-                  rulerEffectMessage = `All opponents drew ${draw7} (Ruler 7: Lucky Spin)`;
-                }
-              }
-              if ((rulerRank === '8' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '8')) && cardRank === '8' && opponents.some(idx => game.players[idx].hand.length <= 3)) {
-                const draw8 = Math.min(2, game.deck.length);
-                if (draw8 > 0) {
-                  opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, draw8)));
-                  rulerEffectMessage = `All opponents drew ${draw8} (Ruler 8: Seeing Red)`;
-                }
-              }
-              if ((rulerRank === '9' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '9')) && cardRank === '9' && game.players[game.turn].hand.length > 5) {
-                const discardCount = game.players[game.turn].hand.length - 5;
-                game.discardPile.push(...game.players[game.turn].hand.splice(0, discardCount));
-                rulerEffectMessage = `Player ${getPlayerLabel(game.turn)} discarded to 5 (Ruler 9: Reverse Nightmare)`;
-              }
-              if ((rulerRank === 'Q' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'Q')) && cardRank === 'K') {
-                const drawQ = Math.min(1, game.deck.length);
-                if (drawQ > 0) {
-                  opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, drawQ)));
-                  rulerEffectMessage = `All opponents drew ${drawQ} (Ruler Q: Ruler’s Touch)`;
-                }
-              }
-              if (rulerEffectMessage) game.moveHistory.unshift(rulerEffectMessage);
+            });
+            game.status = `Player ${getPlayerLabel(game.turn)} wins! Reset to continue.`;
+          } else if (game.fortActive && game.turn === game.fortOwner && game.lastPlayType !== 'pair' && game.lastPlayType !== 'multi') {
+            game.fortActive = false;
+            game.fortCard = null;
+            game.fortRank = null;
+            game.fortOwner = null;
+            game.moveHistory.unshift(`Fort destroyed by ${getPlayerLabel(game.turn)}'s non-pair play`);
+            game.turn = game.extraTurn ? game.turn : (game.turn + 1) % game.players.length;
+            if (game.skipNext === game.turn) {
+              game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+              game.turn = (game.turn + 1) % game.players.length;
+              game.skipNext = null;
             }
-
-            let pairEffectMessage = null;
-            let defaultDrawMessage = null;
-            if (isPair || isStrikePair) {
-              const defaultDraw = Math.min(2, game.deck.length);
-              let totalDraw = defaultDraw;
-              let extraDrawMessage = '';
-
-              if (isPair) {
-                if (cards[0].rank === '2') {
-                  const extraDraw2 = Math.min(1, game.deck.length - totalDraw);
-                  totalDraw += extraDraw2;
-                  extraDrawMessage += ` + ${extraDraw2} (Pair 2: Pair Pair)`;
-                }
-                if (rulerRank === '2' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '2')) {
-                  const ruler2Draw = Math.min(2, game.deck.length - totalDraw);
-                  totalDraw += ruler2Draw;
-                  extraDrawMessage += `${extraDrawMessage ? ' ' : ' + '}${ruler2Draw} (Ruler 2: Twice the Might)`;
-                }
-              }
-
-              if (totalDraw > 0) {
-                opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, totalDraw)));
-                defaultDrawMessage = `All opponents drew ${defaultDraw}${extraDrawMessage}`;
-              }
-
-              if (isPair) {
-                game.pairEffect = cards[0].rank;
-                game.pairEffectOwner = game.turn;
-                switch (cards[0].rank) {
-                  case 'A': pairEffectMessage = 'Pair A: All opponents must play 10+'; break;
-                  case '2': pairEffectMessage = `Pair 2: Opponents drew ${totalDraw}`; break;
-                  case '3': pairEffectMessage = 'Pair 3: All opponents must play odd'; break;
-                  case '4': pairEffectMessage = 'Pair 4: All opponents cannot play 8+'; break;
-                  case '5':
-                    if (game.discardPile.length > 0) {
-                      game.pair5Pending = true;
-                      const topFive = game.discardPile.slice(-5).reverse().map(c => `${c.rank}${c.suit[0]}`).join(', ');
-                      pairEffectMessage = `Pair 5: Top 5 discards: ${topFive}. Select one, then a hand card`;
-                    }
-                    break;
-                  case '6':
-                    game.pair6Pending = true;
-                    pairEffectMessage = `Pair 6: Choose an opponent to skip their next turn`;
-                    game.extraTurn = true;
-                    break;
-                  case '7':
-                    if (game.deck.length > 0) {
-                      game.pair7Pending = true;
-                      const topTwo = game.deck.slice(0, 2).map(c => `${c.rank}${c.suit[0]}`).join(', ');
-                      pairEffectMessage = `Pair 7: Top 2 deck cards: ${topTwo}. Select one, then a hand card`;
-                    }
-                    break;
-                  case '8':
-                    pairEffectMessage = 'Pair 8: Play again and set discard';
-                    game.extraTurn = true;
-                    break;
-                  case '9':
-                    game.fortActive = true;
-                    game.fortCard = cards[0];
-                    game.fortRank = cards[0].rank;
-                    pairEffectMessage = 'Pair 9: Fort created';
-                    break;
-                  case '10': pairEffectMessage = 'Pair 10: All opponents must play even'; break;
-                  case 'J': pairEffectMessage = 'Pair J: All opponents must play 8+'; break;
-                  case 'Q':
-                    const qDraw = Math.min(1, game.deck.length);
-                    if (qDraw > 0) {
-                      opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, qDraw)));
-                      pairEffectMessage = `All opponents drew ${qDraw} (Pair Q: Complaint)`;
-                      game.extraTurn = true;
-                    }
-                    break;
-                  case 'K': pairEffectMessage = 'Pair K: All opponents alternate even/odd'; break;
-                }
-              }
-              if (defaultDrawMessage) game.moveHistory.unshift(defaultDrawMessage);
-              if (pairEffectMessage) game.moveHistory.unshift(pairEffectMessage);
-            }
-
-            if (isToaK) {
-              if (cards[0].rank === 'A') {
-                const aceDraw = Math.min(8, game.deck.length);
-                opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, aceDraw)));
-                game.moveHistory.unshift(`All opponents drew ${aceDraw} (ToaK Aces)`);
-              } else {
-                game.fortActive = true;
-                game.fortCard = cards[0];
-                game.fortRank = cards[0].rank;
-                game.moveHistory.unshift(`ToaK ${cards[0].rank}: Fort created`);
-              }
-            }
-
-            if (game.fortActive) {
-              if (game.turn === game.pairEffectOwner) {
-                if (!isPair && !isStrikePair) {
-                  game.fortActive = false;
-                  game.fortCard = null;
-                  game.fortRank = null;
-                  game.moveHistory.unshift('Fort destroyed (non-pair played)');
-                } else {
-                  game.moveHistory.unshift('Fort continues');
-                }
-              } else if (isPair || isStrikePair) {
-                const fortValue = rankValue(game.fortRank);
-                const pairValue = rankValue(cards[0].rank);
-                if (pairValue > fortValue) {
-                  game.fortChoicePending = true;
-                  game.fortChoicePlayer = game.turn;
-                  game.status = `Player ${getPlayerLabel(game.turn)}: Fort pair ${cards[0].rank} > ${game.fortRank}. ?fortChoice=continue or ?fortChoice=destroy`;
-                } else {
-                  game.moveHistory.unshift(`Fort avoided (lower pair: ${cards[0].rank})`);
-                }
-              } else if (!game.players[game.turn].hand.some((c1, i) => game.players[game.turn].hand.some((c2, j) => i !== j && c1.rank === c2.rank))) {
-                const fortDraw = Math.min(1, game.deck.length);
-                if (fortDraw > 0) {
-                  game.players[game.turn].hand.push(...game.deck.splice(0, fortDraw));
-                  game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} drew 1 (no pair vs fort)`);
-                }
-              }
-            }
-
-            if (game.pairEffectOwner === game.turn && !(isPair || isStrikePair)) {
+            game.extraTurn = false;
+            game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+          } else {
+            if (game.pairEffect === 'K' && game.turn === game.pairEffectOwner) {
               game.pairEffect = null;
               game.pairEffectOwner = null;
+              game.kingAlternation = null;
+            } else if (game.pairEffect === 'K') {
+              game.kingAlternation = !game.kingAlternation;
             }
-
-            const effectName = getActiveEffectName();
-            const playMessage = `Player ${getPlayerLabel(game.turn)} played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}${effectName ? ` (${effectName})` : ''}`;
-            game.moveHistory.unshift(playMessage);
-            if (game.moveHistory.length > 3) game.moveHistory.pop();
-
-            if (game.players[game.turn].hand.length === 0) {
-              game.wins[game.turn]++;
-              const isAceClubs = rulerRank === 'A' && rulerSuit === 'Clubs';
-              const isKing = rulerRank === 'K';
-              const anotherHasAceClubs = game.players.some((p, idx) => idx !== game.turn && p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Clubs');
-              const shouldReset = (isKing || (!isAceClubs && anotherHasAceClubs)) && game.deck.length >= 5 + 7 * (playerCount - 1) && !game.resetTriggered;
-
-              if (shouldReset) {
-                game.deck.push(...game.discardPile);
-                game.discardPile = [];
-                shuffle(game.deck);
-                opponents.forEach(idx => game.players[idx].hand = dealHand(7));
-                game.players[game.turn].hand = dealHand(5);
-                game.phase = 'play';
-                game.resetTriggered = true; // Set flag to prevent further resets
-                game.status = `Player ${getPlayerLabel(game.turn)} wins! Replay with ${isKing ? 'Ruler K' : 'Nuclear Bomb'}!`;
-                game.moveHistory.unshift(`Deck reshuffled: Opponents drew 7, winner drew 5 (${isKing ? 'Ruler K' : 'Nuclear Bomb'})`);
-              } else {
-                game.status = `Player ${getPlayerLabel(game.turn)} wins! Reset to continue.`;
-                game.phase = 'over';
-              }
-            } else if (game.extraTurn && (cards[0].rank === '8' || cards[0].rank === 'Q' || cards[0].rank === '6') && (isPair || isStrikePair)) {
-              game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: ${cards[0].rank === '8' ? 'Play again and set discard!' : (cards[0].rank === '6' ? 'Choose opponent to skip!' : 'Play again and set discard!')}`;
-            } else if (!game.fortChoicePending && !game.pair5Pending && !game.pair7Pending && !game.pair6Pending) {
+            game.turn = game.extraTurn ? game.turn : (game.turn + 1) % game.players.length;
+            if (game.skipNext === game.turn) {
+              game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
               game.turn = (game.turn + 1) % game.players.length;
-              if (game.skipNext === game.turn) {
-                game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
-                game.turn = (game.turn + 1) % game.players.length;
-                game.skipNext = null;
-              }
-              game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+              game.skipNext = null;
             }
+            game.extraTurn = false;
+            game.status = game.pairEffect && game.turn !== game.pairEffectOwner ? `Player ${getPlayerLabel(game.turn)}\'s turn! (${getActiveEffectName()})` : `Player ${getPlayerLabel(game.turn)}\'s turn!`;
           }
+          if (game.moveHistory.length > 3) game.moveHistory.pop();
+        } else {
+          game.status = 'Invalid play!';
         }
       }
-      game.canPlay = game.phase === 'play' ? game.players[game.turn].hand.some(card => isValidPlay([card], game.discard)) : true;
     }
 
+    res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
     gameStates[sessionId] = game;
-
-    res.status(200).json({
-      discard: game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None',
-      playerAHand: game.players[0].hand,
-      playerBHand: game.players[1].hand,
-      playerARuler: game.players[0].ruler ? `${game.players[0].ruler.rank}${game.players[0].ruler.suit[0]}` : 'None',
-      playerBRuler: game.players[1].ruler ? `${game.players[1].ruler.rank}${game.players[1].ruler.suit[0]}` : 'None',
-      status: game.status,
-      phase: game.phase,
-      turn: getPlayerLabel(game.turn),
-      session: sessionId,
-      moveHistory: game.moveHistory,
-      canPlay: game.canPlay,
-      pairEffect: game.pairEffect,
-      fortActive: game.fortActive,
-      fortRank: game.fortRank,
-      deckSize: game.deck.length,
-      skipNext: game.skipNext !== null ? getPlayerLabel(game.skipNext) : null,
-      totalPlayers: game.players.length,
-      discardPileTop: game.discardPile.slice(-5).map(c => `${c.rank}${c.suit[0]}`),
-      deckTopTwo: game.deck.slice(0, 2).map(c => `${c.rank}${c.suit[0]}`),
-      fortChoicePending: game.fortChoicePending,
-      pair5Pending: game.pair5Pending,
-      pair5DiscardChoice: game.pair5DiscardChoice,
-      pair7Pending: game.pair7Pending,
-      pair7DeckChoice: game.pair7DeckChoice,
-      pair6Pending: game.pair6Pending,
-      opponents: getOpponents(game.turn).map(idx => getPlayerLabel(idx)) // Add opponents list for Pair 6
-    });
   } catch (error) {
-    console.error('Handler error:', error);
-    res.status(500).json({ error: 'Server error', details: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 }
 
