@@ -1,9 +1,17 @@
 let selectedCards = [];
+let currentPhase = 'setup'; // Track the game phase
 
 async function fetchGameState() {
-  const response = await fetch('/api/game?players=2');
-  const game = await response.json();
-  updateUI(game);
+  try {
+    const response = await fetch('/api/game?players=2');
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const game = await response.json();
+    currentPhase = game.phase; // Update the current phase
+    updateUI(game);
+  } catch (error) {
+    console.error('Error fetching game state:', error);
+    document.getElementById('status').textContent = `Error loading game: ${error.message}`;
+  }
 }
 
 function updateUI(game) {
@@ -121,12 +129,21 @@ function updateUI(game) {
 
 function selectCard(card, playerIndex) {
   if (playerIndex !== 0) return;
-  const index = selectedCards.indexOf(card);
-  if (index === -1) {
-    selectedCards.push(card);
+
+  if (currentPhase === 'setup') {
+    // During ruler selection, replace the selected card instead of toggling
+    selectedCards = [card]; // Always set to the newly clicked card
   } else {
-    selectedCards.splice(index, 1);
+    // Normal behavior for other phases: toggle selection
+    const index = selectedCards.indexOf(card);
+    if (index === -1) {
+      selectedCards.push(card);
+    } else {
+      selectedCards.splice(index, 1);
+    }
   }
+
+  // Update visual feedback for selected cards
   document.querySelectorAll('.card').forEach(span => {
     if (selectedCards.includes(span.textContent)) {
       span.style.backgroundColor = '#ddd';
@@ -134,65 +151,127 @@ function selectCard(card, playerIndex) {
       span.style.backgroundColor = '';
     }
   });
+
+  // Update the move input field with the selected cards
   document.getElementById('moveInput').value = selectedCards.join(',');
 }
 
 async function makeMove() {
-  const move = document.getElementById('moveInput').value;
-  if (move) {
-    await fetch(`/api/game?players=2&move=${move}`, { method: 'POST' });
-    selectedCards = [];
-    document.getElementById('moveInput').value = '';
-    fetchGameState();
+  try {
+    const move = document.getElementById('moveInput').value;
+    if (move) {
+      const response = await fetch(`/api/game?players=2&move=${move}`, { method: 'POST' });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      selectedCards = [];
+      document.getElementById('moveInput').value = '';
+      fetchGameState();
+    }
+  } catch (error) {
+    console.error('Error making move:', error);
+    document.getElementById('status').textContent = `Error making move: ${error.message}`;
   }
 }
 
 async function drawCard() {
-  await fetch('/api/game?players=2&move=draw', { method: 'POST' });
-  fetchGameState();
+  try {
+    const response = await fetch('/api/game?players=2&move=draw', { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    fetchGameState();
+  } catch (error) {
+    console.error('Error drawing card:', error);
+    document.getElementById('status').textContent = `Error drawing card: ${error.message}`;
+  }
 }
 
 async function resetGame() {
-  await fetch('/api/game?players=2&reset=true', { method: 'POST' });
-  fetchGameState();
+  try {
+    const response = await fetch('/api/game?players=2&reset=true', { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    fetchGameState();
+  } catch (error) {
+    console.error('Error resetting game:', error);
+    document.getElementById('status').textContent = `Error resetting game: ${error.message}`;
+  }
 }
 
 async function addCard() {
-  const card = document.getElementById('addCardInput').value;
-  if (card) {
-    await fetch(`/api/game?players=2&addCards=${card}`, { method: 'POST' });
-    fetchGameState();
+  try {
+    const card = document.getElementById('addCardInput').value;
+    if (card) {
+      const response = await fetch(`/api/game?players=2&addCards=${card}`, { method: 'POST' });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      fetchGameState();
+    }
+  } catch (error) {
+    console.error('Error adding card:', error);
+    document.getElementById('status').textContent = `Error adding card: ${error.message}`;
   }
 }
 
 async function selectPair5DiscardChoice(choice) {
-  await fetch(`/api/game?players=2&pair5DiscardChoice=${choice}`, { method: 'POST' });
-  fetchGameState();
+  try {
+    const response = await fetch(`/api/game?players=2&pair5DiscardChoice=${choice}`, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    fetchGameState();
+  } catch (error) {
+    console.error('Error selecting pair5 discard:', error);
+    document.getElementById('status').textContent = `Error selecting pair5 discard: ${error.message}`;
+  }
 }
 
 async function selectPair5HandChoice(choice) {
-  await fetch(`/api/game?players=2&pair5HandChoice=${choice}`, { method: 'POST' });
-  fetchGameState();
+  try {
+    const response = await fetch(`/api/game?players=2&pair5HandChoice=${choice}`, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    fetchGameState();
+  } catch (error) {
+    console.error('Error selecting pair5 hand:', error);
+    document.getElementById('status').textContent = `Error selecting pair5 hand: ${error.message}`;
+  }
 }
 
 async function selectPair7DeckChoice(choice) {
-  await fetch(`/api/game?players=2&pair7DeckChoice=${choice}`, { method: 'POST' });
-  fetchGameState();
+  try {
+    const response = await fetch(`/api/game?players=2&pair7DeckChoice=${choice}`, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    fetchGameState();
+  } catch (error) {
+    console.error('Error selecting pair7 deck:', error);
+    document.getElementById('status').textContent = `Error selecting pair7 deck: ${error.message}`;
+  }
 }
 
 async function selectPair7HandChoice(choice) {
-  await fetch(`/api/game?players=2&pair7HandChoice=${choice}`, { method: 'POST' });
-  fetchGameState();
+  try {
+    const response = await fetch(`/api/game?players=2&pair7HandChoice=${choice}`, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    fetchGameState();
+  } catch (error) {
+    console.error('Error selecting pair7 hand:', error);
+    document.getElementById('status').textContent = `Error selecting pair7 hand: ${error.message}`;
+  }
 }
 
 async function selectPair6Target(target) {
-  await fetch(`/api/game?players=2&pair6Target=${target}`, { method: 'POST' });
-  fetchGameState();
+  try {
+    const response = await fetch(`/api/game?players=2&pair6Target=${target}`, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    fetchGameState();
+  } catch (error) {
+    console.error('Error selecting pair6 target:', error);
+    document.getElementById('status').textContent = `Error selecting pair6 target: ${error.message}`;
+  }
 }
 
 async function makeFortChoice(choice) {
-  await fetch(`/api/game?players=2&fortChoice=${choice}`, { method: 'POST' });
-  fetchGameState();
+  try {
+    const response = await fetch(`/api/game?players=2&fortChoice=${choice}`, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    fetchGameState();
+  } catch (error) {
+    console.error('Error making fort choice:', error);
+    document.getElementById('status').textContent = `Error making fort choice: ${error.message}`;
+  }
 }
 
 fetchGameState();
