@@ -32,7 +32,10 @@ function handler(req, res) {
       skipNext: null,
       wins: Array(playerCount).fill(0),
       fortChoicePending: false,
-      fortChoicePlayer: null
+      fortChoicePlayer: null,
+      pair5Pending: false,
+      pair7Pending: false,
+      pair6Pending: false
     };
 
     function shuffle(array) {
@@ -107,7 +110,7 @@ function handler(req, res) {
           const pairValue = rankValue(cards[0].rank);
           return pairValue >= 2 && pairValue <= 13;
         }
-        return false; // Only pairs allowed for non-owner
+        return false;
       }
 
       if (game.pairEffect && game.turn !== game.pairEffectOwner) {
@@ -213,8 +216,8 @@ function handler(req, res) {
         2: 'Pair Pair: Opponent draws 1 extra card on top of the normal 2',
         3: 'Feeling Off: Until you play again, all opponents must play odd numbers',
         4: 'Half the Cards: Until you play again, all opponents cannot play 8 or above',
-        5: 'Medium Rare: Return first 5 played to hand, take a random card from discard pile',
-        6: 'Devilish Stare: Skips a random person’s next turn',
+        5: 'Medium Rare: Take a 5 from discard, pick 1 from top 5 discards, shuffle rest into deck',
+        6: 'Devilish Stare: Pick one person, they skip their next turn',
         7: 'Double Luck: See top 2 discard pile cards, swap any with your cards',
         8: 'Good Fortune: Play again and set discard (choose either card)',
         9: 'Fort: Only pairs or better can play until destroyed or your next turn; all opponents draw 1 if no pair',
@@ -231,7 +234,7 @@ function handler(req, res) {
       }
       if (!game.discard && game.deck.length) game.discard = game.deck.shift();
       game.canPlay = game.players[game.turn].hand.some(card => isValidPlay([card], game.discard));
-      if (!game.canPlay && game.phase === 'play') {
+      if (!game.canPlay && game.phase === 'play' && !game.pair5Pending && !game.pair7Pending && !game.pair6Pending) {
         const drawCount = Math.min(2, game.deck.length);
         if (drawCount > 0) {
           game.players[game.turn].hand.push(...game.deck.splice(0, drawCount));
@@ -248,7 +251,7 @@ function handler(req, res) {
     }
 
     if (method === 'POST') {
-      const { move, reset, addCards, fortChoice } = query;
+      const { move, reset, addCards, fortChoice, pair5Choice, pair7SwapHand, pair7SwapDiscard, pair6Target } = query;
       if (reset === 'true') {
         game = {
           deck: shuffle([...deck]),
@@ -271,7 +274,10 @@ function handler(req, res) {
           skipNext: null,
           wins: Array(playerCount).fill(0),
           fortChoicePending: false,
-          fortChoicePlayer: null
+          fortChoicePlayer: null,
+          pair5Pending: false,
+          pair7Pending: false,
+          pair6Pending: false
         };
       } else if (addCards) {
         const match = addCards.match(/^([A2-9JQK]|10)([DHSC])([A-Z])$/i);
@@ -321,17 +327,61 @@ function handler(req, res) {
           game.skipNext = null;
         }
         game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
-      } else if (move === 'pair7swap' && query.card1 && query.card2) {
+      } else if (pair5Choice && game.pair5Pending) {
+        const topFive = game.discardPile.slice(-5).reverse();
+        const choiceIdx = topFive.findIndex(c => `${c.rank}${c.suit[0]}` === pair5Choice);
+        if (choiceIdx !== -1) {
+          const fivePlayed = game.discard; // The 5 from the pair
+          const chosenCard = topFive.splice(choiceIdx, 1)[0];
+          game.players[game.turn].hand.push(chosenCard);
+          game.deck.push(...topFive);
+          shuffle(game.deck);
+          game.discardPile = game.discardPile.slice(0, -5); // Remove top 5
+          game.discard = fivePlayed; // Set 5 as new discard
+          game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} took ${pair5Choice} from top 5, shuffled rest`);
+          game.pair5Pending = false;
+          game.turn = (game.turn + 1) % game.players.length;
+          if (game.skipNext === game.turn) {
+            game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+            game.turn = (game.turn + 1) % game.players.length;
+            game.skipNext = null;
+          }
+          game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+        }
+      } else if (pair7SwapHand && pair7SwapDiscard && game.pair7Pending) {
         const playerHand = game.players[game.turn].hand;
-        const discardTop = game.discardPile.slice(-2).reverse(); // Top 2 cards
-        const card1Idx = playerHand.findIndex(c => `${c.rank}${c.suit[0]}` === query.card1);
-        const card2Idx = discardTop.findIndex(c => `${c.rank}${c.suit[0]}` === query.card2);
+        const discardTop = game.discardPile.slice(-2).reverse();
+        const card1Idx = playerHand.findIndex(c => `${c.rank}${c.suit[0]}` === pair7SwapHand);
+        const card2Idx = discardTop.findIndex(c => `${c.rank}${c.suit[0]}` === pair7SwapDiscard);
         if (card1Idx !== -1 && card2Idx !== -1) {
           const temp = playerHand[card1Idx];
           playerHand[card1Idx] = discardTop[card2Idx];
           discardTop[card2Idx] = temp;
           game.discardPile.splice(-2, 2, ...discardTop.reverse());
-          game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} swapped ${query.card1} with ${query.card2} (Pair 7)`);
+          game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} swapped ${pair7SwapHand} with ${pair7SwapDiscard} (Pair 7)`);
+          game.pair7Pending = false;
+          game.turn = (game.turn + 1) % game.players.length;
+          if (game.skipNext === game.turn) {
+            game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+            game.turn = (game.turn + 1) % game.players.length;
+            game.skipNext = null;
+          }
+          game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+        }
+      } else if (pair6Target && game.pair6Pending) {
+        const targetIdx = parseInt(pair6Target);
+        if (getOpponents(game.turn).includes(targetIdx)) {
+          game.skipNext = targetIdx;
+          game.moveHistory.unshift(`Player ${getPlayerLabel(targetIdx)} will skip next turn (Pair 6)`);
+          game.pair6Pending = false;
+          game.extraTurn = false; // Pair 6 no longer grants extra turn, just skip
+          game.turn = (game.turn + 1) % game.players.length;
+          if (game.skipNext === game.turn) {
+            game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+            game.turn = (game.turn + 1) % game.players.length;
+            game.skipNext = null;
+          }
+          game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
         }
       } else if (fortChoice) {
         if (game.fortChoicePending && game.turn === game.fortChoicePlayer) {
@@ -400,9 +450,8 @@ function handler(req, res) {
             const rulerRank = playerRuler ? playerRuler.rank : null;
             const opponents = getOpponents(game.turn);
 
-            // Pair 8 or Q can choose discard
             if (isPair && (cards[0].rank === '8' || cards[0].rank === 'Q')) {
-              game.discard = playedCards[Math.floor(Math.random() * playedCards.length)]; // Random for now, could add choice
+              game.discard = playedCards[Math.floor(Math.random() * playedCards.length)];
             } else {
               game.discard = playedCards[0];
             }
@@ -503,22 +552,23 @@ function handler(req, res) {
                   case '5':
                     if (game.discardPile.length > 0) {
                       const fiveIdx = playedCards.findIndex(c => c.rank === '5');
-                      if (fiveIdx !== -1) game.players[game.turn].hand.push(playedCards[fiveIdx]);
-                      const discardIdx = Math.floor(Math.random() * game.discardPile.length);
-                      game.players[game.turn].hand.push(game.discardPile.splice(discardIdx, 1)[0]);
-                      pairEffectMessage = 'Pair 5: Returned a 5 and took a random discard';
+                      if (fiveIdx !== -1) {
+                        game.pair5Pending = true;
+                        const topFive = game.discardPile.slice(-5).map(c => `${c.rank}${c.suit[0]}`).join(', ');
+                        pairEffectMessage = `Pair 5: Took ${playedCards[fiveIdx].rank}${playedCards[fiveIdx].suit[0]} from discard. Top 5 discards: ${topFive}. Choose via ?pair5Choice=card`;
+                      }
                     }
                     break;
                   case '6':
-                    const skipIdx = opponents[Math.floor(Math.random() * opponents.length)];
-                    game.skipNext = skipIdx;
-                    pairEffectMessage = `Player ${getPlayerLabel(skipIdx)}’s next turn skipped (Pair 6: Devilish Stare)`;
-                    game.extraTurn = true;
+                    game.pair6Pending = true;
+                    pairEffectMessage = `Pair 6: Choose a player to skip their next turn`;
+                    game.extraTurn = true; // Temporary extra turn until choice
                     break;
                   case '7':
                     if (game.discardPile.length > 0) {
+                      game.pair7Pending = true;
                       const topTwo = game.discardPile.slice(-2).map(c => `${c.rank}${c.suit[0]}`).join(', ');
-                      pairEffectMessage = `Pair 7: Top 2 discards: ${topTwo}. Swap via ?move=pair7swap&card1=yourCard&card2=discardCard`;
+                      pairEffectMessage = `Pair 7: Top 2 discards: ${topTwo}. Swap via ?pair7SwapHand=yourCard&pair7SwapDiscard=discardCard`;
                     }
                     break;
                   case '8':
@@ -615,9 +665,8 @@ function handler(req, res) {
                 game.phase = 'over';
               }
             } else if (game.extraTurn && (cards[0].rank === '8' || cards[0].rank === 'Q' || cards[0].rank === '6') && (isPair || isStrikePair)) {
-              game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: ${cards[0].rank === '8' ? 'Play again and set discard!' : (cards[0].rank === '6' ? 'Extra turn!' : 'Play again and set discard!')}`;
-              game.extraTurn = false;
-            } else if (!game.fortChoicePending) {
+              game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: ${cards[0].rank === '8' ? 'Play again and set discard!' : (cards[0].rank === '6' ? 'Choose player to skip!' : 'Play again and set discard!')}`;
+            } else if (!game.fortChoicePending && !game.pair5Pending && !game.pair7Pending && !game.pair6Pending) {
               game.turn = (game.turn + 1) % game.players.length;
               if (game.skipNext === game.turn) {
                 game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
@@ -652,8 +701,11 @@ function handler(req, res) {
       deckSize: game.deck.length,
       skipNext: game.skipNext !== null ? getPlayerLabel(game.skipNext) : null,
       totalPlayers: game.players.length,
-      discardPileTop: game.discardPile.slice(-2).map(c => `${c.rank}${c.suit[0]}`),
-      fortChoicePending: game.fortChoicePending
+      discardPileTop: game.discardPile.slice(-5).map(c => `${c.rank}${c.suit[0]}`), // Up to 5 for Pair 5
+      fortChoicePending: game.fortChoicePending,
+      pair5Pending: game.pair5Pending,
+      pair7Pending: game.pair7Pending,
+      pair6Pending: game.pair6Pending
     });
   } catch (error) {
     console.error('Handler error:', error);
