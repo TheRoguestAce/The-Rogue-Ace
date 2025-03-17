@@ -82,7 +82,7 @@ function handler(req, res) {
     }
 
     function isValidPlay(cards, top) {
-      if (cards.length === 0 || hasDuplicateCards(cards)) return false;
+      if (cards.length === 0 || hasDuplicateCards(cards)) return false; // Keep this for gameplay
       console.log('isValidPlay called with top:', top);
       const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
       const isEven = r => rankValue(r) % 2 === 0;
@@ -293,11 +293,8 @@ function handler(req, res) {
             game.status = 'Invalid rank or suit!';
           } else {
             const card = { rank: validRank, suit };
-            const cardStr = `${card.rank}${card.suit}`;
-            const allCards = [...game.deck, ...game.discardPile, ...(game.discard ? [game.discard] : []), ...game.players.flatMap(p => p.hand)];
-            if (allCards.some(c => `${c.rank}${c.suit}` === cardStr)) {
-              game.status = 'Card already exists in deck!';
-            } else if (target === 'D') {
+            // Removed duplicate check to allow adding cards freely in developer mode
+            if (target === 'D') {
               game.discardPile.push(game.discard);
               game.discard = card;
               game.moveHistory.unshift(`Set ${card.rank}${suit[0]} as discard`);
@@ -331,13 +328,13 @@ function handler(req, res) {
         const topFive = game.discardPile.slice(-5).reverse();
         const choiceIdx = topFive.findIndex(c => `${c.rank}${c.suit[0]}` === pair5Choice);
         if (choiceIdx !== -1) {
-          const fivePlayed = game.discard; // The 5 from the pair
+          const fivePlayed = game.discard;
           const chosenCard = topFive.splice(choiceIdx, 1)[0];
           game.players[game.turn].hand.push(chosenCard);
           game.deck.push(...topFive);
           shuffle(game.deck);
-          game.discardPile = game.discardPile.slice(0, -5); // Remove top 5
-          game.discard = fivePlayed; // Set 5 as new discard
+          game.discardPile = game.discardPile.slice(0, -5);
+          game.discard = fivePlayed;
           game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} took ${pair5Choice} from top 5, shuffled rest`);
           game.pair5Pending = false;
           game.turn = (game.turn + 1) % game.players.length;
@@ -374,7 +371,7 @@ function handler(req, res) {
           game.skipNext = targetIdx;
           game.moveHistory.unshift(`Player ${getPlayerLabel(targetIdx)} will skip next turn (Pair 6)`);
           game.pair6Pending = false;
-          game.extraTurn = false; // Pair 6 no longer grants extra turn, just skip
+          game.extraTurn = false;
           game.turn = (game.turn + 1) % game.players.length;
           if (game.skipNext === game.turn) {
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
@@ -562,7 +559,7 @@ function handler(req, res) {
                   case '6':
                     game.pair6Pending = true;
                     pairEffectMessage = `Pair 6: Choose a player to skip their next turn`;
-                    game.extraTurn = true; // Temporary extra turn until choice
+                    game.extraTurn = true;
                     break;
                   case '7':
                     if (game.discardPile.length > 0) {
@@ -701,7 +698,7 @@ function handler(req, res) {
       deckSize: game.deck.length,
       skipNext: game.skipNext !== null ? getPlayerLabel(game.skipNext) : null,
       totalPlayers: game.players.length,
-      discardPileTop: game.discardPile.slice(-5).map(c => `${c.rank}${c.suit[0]}`), // Up to 5 for Pair 5
+      discardPileTop: game.discardPile.slice(-5).map(c => `${c.rank}${c.suit[0]}`),
       fortChoicePending: game.fortChoicePending,
       pair5Pending: game.pair5Pending,
       pair7Pending: game.pair7Pending,
