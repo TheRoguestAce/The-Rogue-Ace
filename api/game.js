@@ -618,23 +618,14 @@ function handler(req, res) {
               game.pair5Pending = true;
               game.status = `Player ${getPlayerLabel(game.turn)}: Pick a discard pile card to swap (?pair5DiscardChoice=card)`;
               game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
-              res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
-              gameStates[sessionId] = game;
-              return;
             } else if (rank === '6') {
               game.pair6Pending = true;
               game.status = `Player ${getPlayerLabel(game.turn)}: Pick an opponent to skip (?pair6Target=playerIndex)`;
               game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
-              res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
-              gameStates[sessionId] = game;
-              return;
             } else if (rank === '7') {
               game.pair7Pending = true;
               game.status = `Player ${getPlayerLabel(game.turn)}: Pick a deck card to swap (?pair7DeckChoice=card)`;
               game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} played ${cards.map(c => `${c.rank}${c.suit[0]}`).join(', ')}`);
-              res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
-              gameStates[game.turn] = game;
-              return;
             } else if (rank === '8') {
               game.extraTurn = true;
               game.status = `Player ${getPlayerLabel(game.turn)}: Play again (Pair 8)`;
@@ -729,9 +720,6 @@ function handler(req, res) {
                 game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} drew ${winnerDraw} (Ace of Clubs)`);
                 game.resetTriggered = true;
                 game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: Ace of Clubs reset!`;
-                res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
-                gameStates[sessionId] = game;
-                return;
               }
             });
             game.status = `Player ${getPlayerLabel(game.turn)} wins! Reset to continue.`;
@@ -776,8 +764,8 @@ function handler(req, res) {
     res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
     gameStates[sessionId] = game;
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error in handler:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 }
 
