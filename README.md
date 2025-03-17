@@ -59,7 +59,7 @@ If you need to draw cards and there are no more cards in the deck OR discard pil
 - **2 (Pair Pair)**: Instead of drawing 2 cards everyone else has to draw 3 cards.
 - **3 (Feeling Off)**: Until you play again, everyone else has to play odd numbers.
 - **4 (Half the Cards)**: Until you play again, everyone else cannot play cards 8 and above.
-- **5 (Medium Rare)**: Take one of your fives out of the discard pile after playing it, and then look through the top 5 cards of the discard pile and take one card from it. Then, put the rest of the cards into the deck and shuffle the deck. The five you took out of the pile will be the new discard pile.
+- **5 (Medium Rare)**: Look through the top 5 cards of the discard pile and take one card from it.
 - **6 (Devilish Stare)**: Pick one person. They don’t play for their next turn.
 - **7 (Double Luck)**: Look at the next two cards in the deck. You can choose to replace one of your cards with one of those cards. Then, put the other cards on the top of the deck and shuffle the deck.
 - **8 (Good Fortune)**: Put any one of your other cards onto the top of the discard pile. The next player will have to follow that card.
