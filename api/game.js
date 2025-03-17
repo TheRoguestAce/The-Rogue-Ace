@@ -68,7 +68,7 @@ function handler(req, res) {
 
     function isValidPlay(cards, top) {
       if (cards.length === 0) return false;
-      console.log('isValidPlay called with top:', top); // Debug log
+      console.log('isValidPlay called with top:', top);
       const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
       const isEven = r => rankValue(r) % 2 === 0;
       const playerRuler = game.players[game.turn].ruler;
@@ -178,7 +178,7 @@ function handler(req, res) {
         Clubs: 'Strike: Play two valid cards as a pair if 5+ cards remain (7+ before play)'
       },
       ranks: {
-        2: 'Twice the Might: Pairs make all opponents draw 2 extra (4 total)',
+        2: 'Twice the Might: Pairs make all opponents draw 2 extra cards',
         3: 'Lucky Clover: Play a 7 anytime, all opponents draw 2',
         4: 'Fourfold: Four of a kind reshuffles all cards, all opponents draw 7, player draws 3',
         5: 'High Five: Face cards count as 5 (pairs OK)',
@@ -197,7 +197,7 @@ function handler(req, res) {
       },
       pairs: {
         A: 'Pocket Aces: Until you play again, all opponents must play 10 or above',
-        2: 'Pair Pair: All opponents draw 2 extra (4 total)',
+        2: 'Pair Pair: Opponent draws 1 extra card on top of the normal 2',
         3: 'Feeling Off: Until you play again, all opponents must play odd numbers',
         4: 'Half the Cards: Until you play again, all opponents cannot play 8 or above',
         5: 'Medium Rare: Return first 5 played to hand, take a random card from discard pile',
@@ -407,96 +407,88 @@ function handler(req, res) {
               if (rulerEffectMessage) game.moveHistory.unshift(rulerEffectMessage);
             }
 
-            if ((isPair || isStrikePair) && (rulerRank === '2' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '2'))) {
-              const draw2 = Math.min(2, game.deck.length);
-              if (draw2 > 0) {
-                opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, draw2)));
-                rulerEffectMessage = `All opponents drew ${draw2} (Ruler 2: Twice the Might)`;
-                game.moveHistory.unshift(rulerEffectMessage);
-              }
-            }
-            if (cards.length === 4 && cards.every(c => c.rank === cards[0].rank) && (rulerRank === '4' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '4'))) {
-              game.deck.push(...game.discardPile, ...game.players.flatMap(p => p.hand));
-              game.discardPile = [];
-              game.players.forEach(p => p.hand = []);
-              shuffle(game.deck);
-              const opponentDraw = Math.min(7, game.deck.length);
-              opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, opponentDraw)));
-              const playerDraw = Math.min(3, game.deck.length);
-              game.players[game.turn].hand.push(...game.deck.splice(0, playerDraw));
-              rulerEffectMessage = `Ruler 4: Fourfold - Reshuffled, all opponents drew ${opponentDraw}, player drew ${playerDraw}`;
-              game.moveHistory.unshift(rulerEffectMessage);
-            }
-
             let pairEffectMessage = null;
             let defaultDrawMessage = null;
             if (isPair || isStrikePair) {
               const defaultDraw = Math.min(2, game.deck.length);
-              if (defaultDraw > 0) {
-                opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, defaultDraw)));
-                defaultDrawMessage = `All opponents drew ${defaultDraw} (Pair Default)`;
+              let totalDraw = defaultDraw;
+              let extraDrawMessage = '';
+
+              if (isPair) {
+                if (cards[0].rank === '2') {
+                  const extraDraw2 = Math.min(1, game.deck.length - totalDraw);
+                  totalDraw += extraDraw2;
+                  extraDrawMessage += ` + ${extraDraw2} (Pair 2: Pair Pair)`;
+                }
+                if (rulerRank === '2' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '2')) {
+                  const ruler2Draw = Math.min(2, game.deck.length - totalDraw);
+                  totalDraw += ruler2Draw;
+                  extraDrawMessage += `${extraDrawMessage ? ' ' : ' + '}${ruler2Draw} (Ruler 2: Twice the Might)`;
+                }
               }
-              game.pairEffect = cards[0].rank;
-              game.pairEffectOwner = game.turn;
-              switch (cards[0].rank) {
-                case 'A': pairEffectMessage = 'Pair A: All opponents must play 10+'; break;
-                case '2':
-                  const draw2 = Math.min(2, game.deck.length);
-                  if (draw2 > 0) {
-                    opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, draw2)));
-                    pairEffectMessage = `All opponents drew ${draw2} (Pair 2: Pair Pair)`;
-                  }
-                  break;
-                case '3': pairEffectMessage = 'Pair 3: All opponents must play odd'; break;
-                case '4': pairEffectMessage = 'Pair 4: All opponents cannot play 8+'; break;
-                case '5':
-                  if (game.discardPile.length > 0) {
-                    const fiveIdx = playedCards.findIndex(c => c.rank === '5');
-                    if (fiveIdx !== -1) game.players[game.turn].hand.push(playedCards[fiveIdx]);
-                    const discardIdx = Math.floor(Math.random() * game.discardPile.length);
-                    game.players[game.turn].hand.push(game.discardPile.splice(discardIdx, 1)[0]);
-                    pairEffectMessage = 'Pair 5: Returned a 5 and took a random discard';
-                  }
-                  break;
-                case '6':
-                  const skipIdx = opponents[Math.floor(Math.random() * opponents.length)];
-                  game.skipNext = skipIdx;
-                  pairEffectMessage = `Player ${getPlayerLabel(skipIdx)}’s next turn skipped (Pair 6: Devilish Stare)`;
-                  game.extraTurn = true;
-                  break;
-                case '7':
-                  if (game.deck.length > 0) {
-                    const card1 = game.deck.shift();
-                    const replaceIdx = Math.floor(Math.random() * game.players[game.turn].hand.length);
-                    game.deck.push(game.players[game.turn].hand.splice(replaceIdx, 1)[0]);
-                    game.players[game.turn].hand.push(card1);
-                    shuffle(game.deck);
-                    pairEffectMessage = 'Pair 7: Replaced a card';
-                  }
-                  break;
-                case '8':
-                  pairEffectMessage = 'Pair 8: Play again and set discard';
-                  game.extraTurn = true;
-                  break;
-                case '9':
-                  game.fortActive = true;
-                  game.fortCard = cards[0];
-                  game.fortRank = cards[0].rank;
-                  pairEffectMessage = 'Pair 9: Fort created';
-                  const fortDraw = Math.min(1, game.deck.length);
-                  if (fortDraw > 0) opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, fortDraw)));
-                  break;
-                case '10': pairEffectMessage = 'Pair 10: All opponents must play even'; break;
-                case 'J': pairEffectMessage = 'Pair J: All opponents must play 8+'; break;
-                case 'Q':
-                  const qDraw = Math.min(1, game.deck.length);
-                  if (qDraw > 0) {
-                    opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, qDraw)));
-                    pairEffectMessage = `All opponents drew ${qDraw} (Pair Q: Complaint)`;
+
+              if (totalDraw > 0) {
+                opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, totalDraw)));
+                defaultDrawMessage = `All opponents drew ${defaultDraw}${extraDrawMessage}`;
+              }
+
+              if (isPair) {
+                game.pairEffect = cards[0].rank;
+                game.pairEffectOwner = game.turn;
+                switch (cards[0].rank) {
+                  case 'A': pairEffectMessage = 'Pair A: All opponents must play 10+'; break;
+                  case '2': pairEffectMessage = `Pair 2: Opponents drew ${totalDraw}`; break;
+                  case '3': pairEffectMessage = 'Pair 3: All opponents must play odd'; break;
+                  case '4': pairEffectMessage = 'Pair 4: All opponents cannot play 8+'; break;
+                  case '5':
+                    if (game.discardPile.length > 0) {
+                      const fiveIdx = playedCards.findIndex(c => c.rank === '5');
+                      if (fiveIdx !== -1) game.players[game.turn].hand.push(playedCards[fiveIdx]);
+                      const discardIdx = Math.floor(Math.random() * game.discardPile.length);
+                      game.players[game.turn].hand.push(game.discardPile.splice(discardIdx, 1)[0]);
+                      pairEffectMessage = 'Pair 5: Returned a 5 and took a random discard';
+                    }
+                    break;
+                  case '6':
+                    const skipIdx = opponents[Math.floor(Math.random() * opponents.length)];
+                    game.skipNext = skipIdx;
+                    pairEffectMessage = `Player ${getPlayerLabel(skipIdx)}’s next turn skipped (Pair 6: Devilish Stare)`;
                     game.extraTurn = true;
-                  }
-                  break;
-                case 'K': pairEffectMessage = 'Pair K: All opponents alternate even/odd'; break;
+                    break;
+                  case '7':
+                    if (game.deck.length > 0) {
+                      const card1 = game.deck.shift();
+                      const replaceIdx = Math.floor(Math.random() * game.players[game.turn].hand.length);
+                      game.deck.push(game.players[game.turn].hand.splice(replaceIdx, 1)[0]);
+                      game.players[game.turn].hand.push(card1);
+                      shuffle(game.deck);
+                      pairEffectMessage = 'Pair 7: Replaced a card';
+                    }
+                    break;
+                  case '8':
+                    pairEffectMessage = 'Pair 8: Play again and set discard';
+                    game.extraTurn = true;
+                    break;
+                  case '9':
+                    game.fortActive = true;
+                    game.fortCard = cards[0];
+                    game.fortRank = cards[0].rank;
+                    pairEffectMessage = 'Pair 9: Fort created';
+                    const fortDraw = Math.min(1, game.deck.length);
+                    if (fortDraw > 0) opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, fortDraw)));
+                    break;
+                  case '10': pairEffectMessage = 'Pair 10: All opponents must play even'; break;
+                  case 'J': pairEffectMessage = 'Pair J: All opponents must play 8+'; break;
+                  case 'Q':
+                    const qDraw = Math.min(1, game.deck.length);
+                    if (qDraw > 0) {
+                      opponents.forEach(idx => game.players[idx].hand.push(...game.deck.splice(0, qDraw)));
+                      pairEffectMessage = `All opponents drew ${qDraw} (Pair Q: Complaint)`;
+                      game.extraTurn = true;
+                    }
+                    break;
+                  case 'K': pairEffectMessage = 'Pair K: All opponents alternate even/odd'; break;
+                }
               }
               if (defaultDrawMessage) game.moveHistory.unshift(defaultDrawMessage);
               if (pairEffectMessage) game.moveHistory.unshift(pairEffectMessage);
