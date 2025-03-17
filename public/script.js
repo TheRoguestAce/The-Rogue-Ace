@@ -11,7 +11,7 @@ const rulerAbilities = {
     Clubs: 'Strike: Play two valid cards as a pair if 5+ cards remain (7+ before play)'
   },
   ranks: {
-    2: 'Twice the Might: Pairs make all opponents draw 2 extra (4 total)',
+    2: 'Twice the Might: Pairs make all opponents draw 2 extra cards',
     3: 'Lucky Clover: Play a 7 anytime, all opponents draw 2',
     4: 'Fourfold: Four of a kind reshuffles all cards, all opponents draw 7, player draws 3',
     5: 'High Five: Face cards count as 5 (pairs OK)',
@@ -30,7 +30,7 @@ const rulerAbilities = {
   },
   pairs: {
     A: 'Pocket Aces: Until you play again, all opponents must play 10 or above',
-    2: 'Pair Pair: All opponents draw 2 extra (4 total)',
+    2: 'Pair Pair: Opponent draws 1 extra card on top of the normal 2',
     3: 'Feeling Off: Until you play again, all opponents must play odd numbers',
     4: 'Half the Cards: Until you play again, all opponents cannot play 8 or above',
     5: 'Medium Rare: Return first 5 played to hand, take a random card from discard pile',
@@ -101,7 +101,6 @@ function updateDisplay(data) {
   if (data.fortActive) document.getElementById('status').textContent += ` (Fort active${data.fortRank ? ` - ${data.fortRank}` : ''})`;
   if (data.skipNext) document.getElementById('status').textContent += ` (Next skip: ${data.skipNext})`;
 
-  // Show abilities based on selected cards
   showAbilities(data);
 }
 
@@ -137,22 +136,37 @@ function resetGame() {
 function showAbilities(data) {
   const abilitiesDiv = document.getElementById('ruler-abilities');
   let abilitiesText = '';
+  const playerRuler = data.turn === 'A' ? data.playerARuler : data.playerBRuler;
+  const rulerRank = playerRuler && playerRuler !== 'None' ? playerRuler.slice(0, -1) : null;
+  const rulerSuit = playerRuler && playerRuler !== 'None' ? (playerRuler.slice(-1) === 'D' ? 'Diamonds' : playerRuler.slice(-1) === 'H' ? 'Hearts' : playerRuler.slice(-1) === 'S' ? 'Spades' : 'Clubs') : null;
 
   if (selectedCards.length === 1 && data.phase === 'setup') {
-    // Single card in setup: show ruler abilities
     const card = selectedCards[0];
     const rank = card.slice(0, -1);
     const suit = card.slice(-1) === 'D' ? 'Diamonds' : card.slice(-1) === 'H' ? 'Hearts' : card.slice(-1) === 'S' ? 'Spades' : 'Clubs';
-    abilitiesText = `${suit}: ${rulerAbilities.suits[suit]}<br>${rank}: ${rulerAbilities.ranks[rank] || rulerAbilities.ranks[`${rank}-${suit}`]}`;
+    abilitiesText = rank === 'A' 
+      ? `${rank}: ${rulerAbilities.ranks[`${rank}-${suit}`]}`
+      : `${suit}: ${rulerAbilities.suits[suit]}<br>${rank}: ${rulerAbilities.ranks[rank]}`;
   } else if (selectedCards.length === 2 || selectedCards.length === 3) {
-    // Check for pair or ToaK
     const ranks = selectedCards.map(card => card.slice(0, -1));
     const isPair = selectedCards.length === 2 && ranks[0] === ranks[1];
     const isToaK = selectedCards.length === 3 && ranks.every(r => r === ranks[0]);
 
     if (isPair) {
       const rank = ranks[0];
-      abilitiesText = `Pair ${rank}: ${rulerAbilities.pairs[rank]}`;
+      let drawAmount = 2; // Default pair draw
+      let effectText = rulerAbilities.pairs[rank];
+      if (rank === '2') {
+        drawAmount += 1; // Pair 2 adds 1 extra
+        effectText = `Pair Pair: Opponent draws 1 extra card on top of the normal 2`;
+      }
+      if (rulerRank === '2' || (data.totalPlayers > 2 && data.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '2'))) {
+        drawAmount += 2; // Ruler 2 adds 2 extra
+        effectText = rank === '2' 
+          ? `Pair Pair: Opponent draws 3 extra cards on top of the normal 2 with Ruler 2`
+          : `${effectText} (+2 extra cards with Ruler 2)`;
+      }
+      abilitiesText = rank === '2' ? effectText : `Pair ${rank}: ${effectText}${drawAmount > 2 ? ` (Total draw: ${drawAmount})` : ''}`;
     } else if (isToaK) {
       const rank = ranks[0];
       abilitiesText = rank === 'A' 
@@ -173,7 +187,9 @@ function showRulerAbilities(player) {
   if (ruler !== 'None') {
     const rank = ruler.slice(0, -1);
     const suit = ruler.slice(-1) === 'D' ? 'Diamonds' : ruler.slice(-1) === 'H' ? 'Hearts' : ruler.slice(-1) === 'S' ? 'Spades' : 'Clubs';
-    abilitiesText = `${suit}: ${rulerAbilities.suits[suit]}<br>${rank}: ${rulerAbilities.ranks[rank] || rulerAbilities.ranks[`${rank}-${suit}`]}`;
+    abilitiesText = rank === 'A' 
+      ? `${rank}: ${rulerAbilities.ranks[`${rank}-${suit}`]}`
+      : `${suit}: ${rulerAbilities.suits[suit]}<br>${rank}: ${rulerAbilities.ranks[rank]}`;
   }
 
   abilitiesDiv.innerHTML = abilitiesText;
