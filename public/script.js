@@ -2,7 +2,7 @@ const sessionId = localStorage.getItem('rogueAceSession') || Date.now().toString
 localStorage.setItem('rogueAceSession', sessionId);
 let selectedCards = [];
 let data = {};
-let rulerDisplayState = { playerA: false, playerB: false }; // Track ruler description visibility
+let rulerDisplayState = { playerA: false, playerB: false };
 
 const rulerAbilities = {
   suits: {
@@ -36,24 +36,25 @@ const rulerAbilities = {
     4: 'Half the Cards: Until you play again, all opponents cannot play 8 or above',
     5: 'Medium Rare: Return first 5 played to hand, take a random card from discard pile',
     6: 'Devilish Stare: Skips a random person’s next turn',
-    7: 'Double Luck: Look at top card, replace one of yours, reshuffle',
-    8: 'Good Fortune: Play again and set discard',
+    7: 'Double Luck: See top 2 discard pile cards, swap any with your cards',
+    8: 'Good Fortune: Play again and set discard (choose either card)',
     9: 'Fort: Only pairs or better can play until destroyed or your next turn; all opponents draw 1 if no pair',
     10: 'Feeling Right: Until you play again, all opponents must play even numbers',
     J: 'High Card: Until you play again, all opponents must play 8 or above',
-    Q: 'Complaint: All opponents draw 1, you pick a card to discard next turn',
+    Q: 'Complaint: All opponents draw 1, play again and set discard (choose either card)',
     K: 'I am your Father: Until you play again, all opponents alternate even/odd (K/J odd)'
   }
 };
 
-async function fetchGame(move = '', reset = false, addCards = null) {
+async function fetchGame(move = '', reset = false, addCards = null, fortChoice = null) {
   let url = `/api/game?session=${sessionId}`;
   if (reset) url += '&reset=true';
   else if (move) url += `&move=${move}`;
   else if (addCards) url += `&addCards=${addCards}`;
+  else if (fortChoice) url += `&fortChoice=${fortChoice}`;
   
   try {
-    const res = await fetch(url, { method: move || reset || addCards ? 'POST' : 'GET' });
+    const res = await fetch(url, { method: move || reset || addCards || fortChoice ? 'POST' : 'GET' });
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
     data = await res.json();
     updateDisplay(data);
@@ -94,15 +95,22 @@ function updateDisplay(data) {
   document.getElementById('turn').textContent = data.turn || '?';
   document.getElementById('moveHistory').textContent = (data.moveHistory || []).join(' | ') || 'None';
   document.getElementById('deckSize').textContent = data.deckSize || '?';
-  document.getElementById('draw-button').style.display = data.canPlay ? 'none' : 'inline';
+  document.getElementById('draw-button').style.display = 'none'; // Auto-draw handles this
   document.getElementById('play-button').disabled = selectedCards.length === 0;
   
   if (data.phase === 'over') alert(data.status);
   if (data.pairEffect) document.getElementById('status').textContent += ` (Pair ${data.pairEffect} active)`;
   if (data.fortActive) document.getElementById('status').textContent += ` (Fort active${data.fortRank ? ` - ${data.fortRank}` : ''})`;
   if (data.skipNext) document.getElementById('status').textContent += ` (Next skip: ${data.skipNext})`;
+  if (data.fortChoicePending) {
+    document.getElementById('fort-continue-button').style.display = 'inline';
+    document.getElementById('fort-destroy-button').style.display = 'inline';
+  } else {
+    document.getElementById('fort-continue-button').style.display = 'none';
+    document.getElementById('fort-destroy-button').style.display = 'none';
+  }
 
-  showAbilities(data); // Show pair/ToaK or ruler setup abilities based on selection
+  showAbilities(data);
 }
 
 function toggleCard(card) {
@@ -134,11 +142,18 @@ function resetGame() {
   fetchGame('', true);
 }
 
+function fortContinue() {
+  fetchGame(null, false, null, 'continue');
+}
+
+function fortDestroy() {
+  fetchGame(null, false, null, 'destroy');
+}
+
 function showAbilities(data) {
   const abilitiesDiv = document.getElementById('ruler-abilities');
   let abilitiesText = '';
 
-  // Prioritize pair/ToaK abilities when cards are selected during play phase
   if (data.phase === 'play' && (selectedCards.length === 2 || selectedCards.length === 3)) {
     const ranks = selectedCards.map(card => card.slice(0, -1));
     const isPair = selectedCards.length === 2 && ranks[0] === ranks[1];
@@ -147,15 +162,16 @@ function showAbilities(data) {
     if (isPair) {
       const rank = ranks[0];
       abilitiesText = `Pair ${rank}: ${rulerAbilities.pairs[rank]}`;
+      if (rank === '7' && data.discardPileTop && data.discardPileTop.length > 0) {
+        abilitiesText += `<br>Top discards: ${data.discardPileTop.join(', ')}`;
+      }
     } else if (isToaK) {
       const rank = ranks[0];
       abilitiesText = rank === 'A' 
         ? `Three of a Kind ${rank}: All opponents draw 8 cards`
         : `Three of a Kind ${rank}: Creates a fort (only pairs or better can play until destroyed or your next turn)`;
     }
-  } 
-  // Show ruler abilities during setup when selecting a single card
-  else if (data.phase === 'setup' && selectedCards.length === 1) {
+  } else if (data.phase === 'setup' && selectedCards.length === 1) {
     const card = selectedCards[0];
     const rank = card.slice(0, -1);
     const suit = card.slice(-1) === 'D' ? 'Diamonds' : card.slice(-1) === 'H' ? 'Hearts' : card.slice(-1) === 'S' ? 'Spades' : 'Clubs';
@@ -173,7 +189,6 @@ function showRulerAbilities(player) {
   const ruler = player === 'playerA' ? data.playerARuler : data.playerBRuler;
   const stateKey = player === 'playerA' ? 'playerA' : 'playerB';
 
-  // Toggle visibility on click
   rulerDisplayState[stateKey] = !rulerDisplayState[stateKey];
 
   let abilitiesText = '';
@@ -188,7 +203,6 @@ function showRulerAbilities(player) {
   abilitiesDiv.innerHTML = abilitiesText;
   abilitiesDiv.style.display = abilitiesText ? 'block' : 'none';
 
-  // Clear selected cards display if ruler is toggled on to avoid overlap
   if (rulerDisplayState[stateKey]) {
     selectedCards = [];
     updateDisplay(data);
