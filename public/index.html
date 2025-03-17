@@ -1,56 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Card Game</title>
-    <link rel="stylesheet" href="/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Card Game</title>
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <div id="game-container">
-        <h1>Card Game</h1>
-        <div id="status"></div>
-        <div id="discard">Discard: <span id="discard-card"></span></div>
-        <div id="player-a">
-            <h2>Player A</h2>
-            <p>Ruler: <span id="player-a-ruler"></span></p>
-            <div id="player-a-hand"></div>
-        </div>
-        <div id="player-b">
-            <h2>Player B</h2>
-            <p>Ruler: <span id="player-b-ruler"></span></p>
-            <div id="player-b-hand"></div>
-        </div>
-        <div id="pair-options">
-            <div id="pair-5-options" style="display: none;">
-                <h3>Pair 5: Select Discard Card</h3>
-                <div id="discard-pile-top"></div>
-                <div id="pair-5-swap" style="display: none;">Swap your card out for: <div id="pair-5-swap-cards"></div></div>
-            </div>
-            <div id="pair-7-options" style="display: none;">
-                <h3>Pair 7: Select Deck Card</h3>
-                <div id="deck-top-two"></div>
-                <div id="pair-7-swap" style="display: none;">Swap your card out for: <div id="pair-7-swap-cards"></div></div>
-            </div>
-            <div id="pair-6-options" style="display: none;">
-                <h3>Pair 6: Select Opponent</h3>
-                <div id="opponents-list"></div>
-            </div>
-            <button id="confirm-swap-btn" style="display: none;">Confirm Swap</button>
-            <button id="confirm-skip-btn" style="display: none;">Confirm Skip</button>
-        </div>
-        <div id="controls">
-            <button id="play-btn">Play Selected</button>
-            <button id="draw-btn" style="display: none;">Draw</button>
-            <button id="reset-btn">Reset Game</button>
-            <input id="add-card-input" placeholder="e.g., 8DA (Player A), KSD (discard)">
-            <button id="add-card-btn">Add Card</button>
-        </div>
-        <div id="move-history">
-            <h3>Move History</h3>
-            <ul id="history-list"></ul>
-        </div>
+  <div id="game">
+    <h1>Card Game</h1>
+    <p><strong>Status:</strong> <span id="status">Waiting for game state...</span></p>
+    <p><strong>Turn:</strong> <span id="turn"></span></p>
+    <p><strong>Discard:</strong> <span id="discard"></span></p>
+    <div id="players"></div>
+    <p><strong>Move History:</strong></p>
+    <ul id="history"></ul>
+    <p><strong>Deck Size:</strong> <span id="deckSize"></span></p>
+    <p><strong>Wins:</strong> <span id="wins"></span></p>
+    <div id="pair5Choices" style="display: none;">
+      <p>Swap your card out for:</p>
+      <div id="pair5DiscardOptions"></div>
+      <div id="pair5HandOptions" style="display: none;">
+        <p>With:</p>
+        <div id="pair5HandCards"></div>
+      </div>
     </div>
-    <script src="/script.js"></script>
+    <div id="pair7Choices" style="display: none;">
+      <p>Swap your card out for:</p>
+      <div id="pair7DeckOptions"></div>
+      <div id="pair7HandOptions" style="display: none;">
+        <p>With:</p>
+        <div id="pair7HandCards"></div>
+      </div>
+    </div>
+    <div id="pair6Choices" style="display: none;">
+      <p>Pick an opponent to skip:</p>
+      <div id="pair6TargetOptions"></div>
+    </div>
+    <div id="fortChoice" style="display: none;">
+      <p>Fort Choice:</p>
+      <button onclick="makeFortChoice('continue')">Continue</button>
+      <button onclick="makeFortChoice('destroy')">Destroy</button>
+    </div>
+    <div id="controls">
+      <input type="text" id="moveInput" placeholder="Enter move (e.g., AH,2D)">
+      <button onclick="makeMove()">Play</button>
+      <button onclick="drawCard()">Draw</button>
+      <button onclick="resetGame()">Reset</button>
+      <input type="text" id="addCardInput" placeholder="Add card (e.g., 8DA)">
+      <button onclick="addCard()">Add Card</button>
+    </div>
+  </div>
+  <script src="/script.js"></script>
 </body>
 </html>
