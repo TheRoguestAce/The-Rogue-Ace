@@ -593,11 +593,11 @@ function handler(req, res) {
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} set ruler ${cards[0].rank}${cards[0].suit[0]}`);
             game.players[game.turn].hand = game.players[game.turn].hand.filter(h => !(h.rank === cards[0].rank && h.suit === cards[0].suit));
             game.players[game.turn].hand.push(...dealHand(1));
-            game.turn = (game.turn + 1) % game.players.length;
+            game.turn = (game.turn + 1) % game.players.length; // Advance turn after ruler selection
             game.status = game.players.every(p => p.ruler) ? 'All rulers set! Game starts!' : `Player ${getPlayerLabel(game.turn)}\'s turn: Pick your ruler!`;
             if (game.players.every(p => p.ruler)) game.phase = 'play';
           }
-        } else if (isValidPlay(cards, game.discard)) {
+        } else if (game.phase === 'play' && isValidPlay(cards, game.discard)) {
           game.players[game.turn].hand = game.players[game.turn].hand.filter(h => !cards.some(c => c.rank === h.rank && c.suit === h.suit));
           game.discardPile.push(game.discard);
           game.discard = cards[0];
@@ -745,7 +745,7 @@ function handler(req, res) {
             } else if (game.pairEffect === 'K') {
               game.kingAlternation = !game.kingAlternation;
             }
-            game.turn = game.extraTurn ? game.turn : (game.turn + 1) % game.players.length;
+            game.turn = game.extraTurn ? game.turn : (game.turn + 1) % game.players.length; // Ensure turn advances after valid play
             if (game.skipNext === game.turn) {
               game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
               game.turn = (game.turn + 1) % game.players.length;
