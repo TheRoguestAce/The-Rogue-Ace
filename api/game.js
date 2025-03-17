@@ -209,11 +209,11 @@ function handler(req, res) {
         10: 'Perfection: Play multiple even cards on an even card or empty pile (no pairs)',
         J: 'Servant: J/Q/K/A count as each other (pairs OK)',
         Q: 'Ruler’s Touch: Kings are wild cards, counting as every rank, all opponents draw 1 (pairs OK)',
-        K: 'Ruler of Rulers: Inherits all opponents’ ruler abilities, replay with 5 cards on first win',
+        K: 'Ruler of Rulers: Win reshuffles deck, opponents draw 7, winner draws 5',
         'A-Diamonds': 'Perfect Card: Odd non-face cards (A,3,5,7,9) playable anytime (no pairs)',
         'A-Hearts': 'Otherworldly Touch: Hearts are wild cards, counting as every rank (no pairs)',
         'A-Spades': 'Pocket Knife: All cards count as both their rank and half rank rounded down (pairs OK)',
-        'A-Clubs': 'Nuclear Bomb: On first win, reshuffle deck, opponents draw 7, winner draws 5 (skips if winner’s first win)'
+        'A-Clubs': 'Nuclear Bomb: If another player wins without this ruler, reshuffle deck, opponents draw 7, winner draws 5'
       },
       pairs: {
         A: 'Pocket Aces: Until you play again, all opponents must play 10 or above',
@@ -670,17 +670,19 @@ function handler(req, res) {
             if (game.players[game.turn].hand.length === 0) {
               game.wins[game.turn]++;
               const isAceClubs = rulerRank === 'A' && rulerSuit === 'Clubs';
-              const isFirstWin = game.wins[game.turn] === 1;
-              const opponentsHaveWins = game.wins.some((w, i) => i !== game.turn && w > 0);
-              if ((rulerRank === 'K' || (isAceClubs && isFirstWin && opponentsHaveWins)) && game.deck.length >= 5 + 7 * (playerCount - 1)) {
+              const isKing = rulerRank === 'K';
+              const anotherHasAceClubs = game.players.some((p, idx) => idx !== game.turn && p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Clubs');
+              const shouldReset = (isKing || (!isAceClubs && anotherHasAceClubs)) && game.deck.length >= 5 + 7 * (playerCount - 1);
+
+              if (shouldReset) {
                 game.deck.push(...game.discardPile);
                 game.discardPile = [];
                 shuffle(game.deck);
                 opponents.forEach(idx => game.players[idx].hand = dealHand(7));
                 game.players[game.turn].hand = dealHand(5);
                 game.phase = 'play';
-                game.status = `Player ${getPlayerLabel(game.turn)} wins! Replay with ${rulerRank === 'K' ? 'Ruler K' : 'Ace-Clubs'}!`;
-                game.moveHistory.unshift(`Deck reshuffled: Opponents drew 7, winner drew 5 (${isAceClubs ? 'Nuclear Bomb' : 'Ruler K'})`);
+                game.status = `Player ${getPlayerLabel(game.turn)} wins! Replay with ${isKing ? 'Ruler K' : 'Nuclear Bomb'}!`;
+                game.moveHistory.unshift(`Deck reshuffled: Opponents drew 7, winner drew 5 (${isKing ? 'Ruler K' : 'Nuclear Bomb'})`);
               } else {
                 game.status = `Player ${getPlayerLabel(game.turn)} wins! Reset to continue.`;
                 game.phase = 'over';
