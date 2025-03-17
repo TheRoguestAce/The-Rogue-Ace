@@ -34,8 +34,8 @@ const rulerAbilities = {
     2: 'Pair Pair: Opponent draws 1 extra card on top of the normal 2',
     3: 'Feeling Off: Until you play again, all opponents must play odd numbers',
     4: 'Half the Cards: Until you play again, all opponents cannot play 8 or above',
-    5: 'Medium Rare: Return first 5 played to hand, take a random card from discard pile',
-    6: 'Devilish Stare: Skips a random person’s next turn',
+    5: 'Medium Rare: Take a 5 from discard, pick 1 from top 5 discards, shuffle rest into deck',
+    6: 'Devilish Stare: Pick one person, they skip their next turn',
     7: 'Double Luck: See top 2 discard pile cards, swap any with your cards',
     8: 'Good Fortune: Play again and set discard (choose either card)',
     9: 'Fort: Only pairs or better can play until destroyed or your next turn; all opponents draw 1 if no pair',
@@ -46,15 +46,18 @@ const rulerAbilities = {
   }
 };
 
-async function fetchGame(move = '', reset = false, addCards = null, fortChoice = null) {
+async function fetchGame(move = '', reset = false, addCards = null, fortChoice = null, pair5Choice = null, pair7SwapHand = null, pair7SwapDiscard = null, pair6Target = null) {
   let url = `/api/game?session=${sessionId}`;
   if (reset) url += '&reset=true';
   else if (move) url += `&move=${move}`;
   else if (addCards) url += `&addCards=${addCards}`;
   else if (fortChoice) url += `&fortChoice=${fortChoice}`;
+  else if (pair5Choice) url += `&pair5Choice=${pair5Choice}`;
+  else if (pair7SwapHand && pair7SwapDiscard) url += `&pair7SwapHand=${pair7SwapHand}&pair7SwapDiscard=${pair7SwapDiscard}`;
+  else if (pair6Target) url += `&pair6Target=${pair6Target}`;
   
   try {
-    const res = await fetch(url, { method: move || reset || addCards || fortChoice ? 'POST' : 'GET' });
+    const res = await fetch(url, { method: move || reset || addCards || fortChoice || pair5Choice || (pair7SwapHand && pair7SwapDiscard) || pair6Target ? 'POST' : 'GET' });
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
     data = await res.json();
     updateDisplay(data);
@@ -95,19 +98,46 @@ function updateDisplay(data) {
   document.getElementById('turn').textContent = data.turn || '?';
   document.getElementById('moveHistory').textContent = (data.moveHistory || []).join(' | ') || 'None';
   document.getElementById('deckSize').textContent = data.deckSize || '?';
-  document.getElementById('draw-button').style.display = 'none'; // Auto-draw handles this
   document.getElementById('play-button').disabled = selectedCards.length === 0;
   
   if (data.phase === 'over') alert(data.status);
   if (data.pairEffect) document.getElementById('status').textContent += ` (Pair ${data.pairEffect} active)`;
   if (data.fortActive) document.getElementById('status').textContent += ` (Fort active${data.fortRank ? ` - ${data.fortRank}` : ''})`;
   if (data.skipNext) document.getElementById('status').textContent += ` (Next skip: ${data.skipNext})`;
-  if (data.fortChoicePending) {
-    document.getElementById('fort-continue-button').style.display = 'inline';
-    document.getElementById('fort-destroy-button').style.display = 'inline';
-  } else {
-    document.getElementById('fort-continue-button').style.display = 'none';
-    document.getElementById('fort-destroy-button').style.display = 'none';
+
+  // Toggle visibility of action buttons
+  document.getElementById('fort-continue-button').style.display = data.fortChoicePending ? 'inline' : 'none';
+  document.getElementById('fort-destroy-button').style.display = data.fortChoicePending ? 'inline' : 'none';
+  document.getElementById('pair5-buttons').style.display = data.pair5Pending ? 'block' : 'none';
+  document.getElementById('pair7-buttons').style.display = data.pair7Pending ? 'block' : 'none';
+  document.getElementById('pair6-buttons').style.display = data.pair6Pending ? 'block' : 'none';
+
+  if (data.pair5Pending && data.discardPileTop) {
+    const pair5Buttons = document.getElementById('pair5-buttons');
+    pair5Buttons.innerHTML = 'Choose a card from top 5 discards:<br>' + data.discardPileTop.map(card => 
+      `<button onclick="fetchGame(null, false, null, null, '${card}')">${card}</button>`
+    ).join(' ');
+  }
+
+  if (data.pair7Pending && data.discardPileTop) {
+    const pair7Buttons = document.getElementById('pair7-buttons');
+    const hand = data.turn === 'A' ? data.playerAHand : data.playerBHand;
+    pair7Buttons.innerHTML = 'Swap a hand card with a discard:<br>' + 
+      hand.map(hCard => 
+        `<div>${hCard.rank}${hCard.suit[0]}: ` + 
+        data.discardPileTop.slice(0, 2).map(dCard => 
+          `<button onclick="fetchGame(null, false, null, null, null, '${hCard.rank}${hCard.suit[0]}', '${dCard}')">${dCard}</button>`
+        ).join(' ') + '</div>'
+      ).join('');
+  }
+
+  if (data.pair6Pending) {
+    const pair6Buttons = document.getElementById('pair6-buttons');
+    const opponents = data.turn === 'A' ? [1] : [0]; // Extend for more players if needed
+    pair6Buttons.innerHTML = 'Choose a player to skip:<br>' + 
+      opponents.map(idx => 
+        `<button onclick="fetchGame(null, false, null, null, null, null, null, '${idx}')">${String.fromCharCode(65 + idx)}</button>`
+      ).join(' ');
   }
 
   showAbilities(data);
@@ -163,7 +193,9 @@ function showAbilities(data) {
       const rank = ranks[0];
       abilitiesText = `Pair ${rank}: ${rulerAbilities.pairs[rank]}`;
       if (rank === '7' && data.discardPileTop && data.discardPileTop.length > 0) {
-        abilitiesText += `<br>Top discards: ${data.discardPileTop.join(', ')}`;
+        abilitiesText += `<br>Top 2 discards: ${data.discardPileTop.slice(0, 2).join(', ')}`;
+      } else if (rank === '5' && data.discardPileTop && data.discardPileTop.length > 0) {
+        abilitiesText += `<br>Top 5 discards: ${data.discardPileTop.join(', ')}`;
       }
     } else if (isToaK) {
       const rank = ranks[0];
