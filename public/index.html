@@ -1,34 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rogue Ace</title>
-  <link rel="stylesheet" href="/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Game</title>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <h1>Rogue Ace</h1>
-  <div>Discard: <span id="discard">None</span></div>
-  <div>Player A Hand: <span id="playerAHand">Empty</span></div>
-  <div>Player B Hand: <span id="playerBHand">Empty</span></div>
-  <div>Player A Ruler: <span id="playerARuler" onclick="showRulerAbilities('playerA')">None</span></div>
-  <div>Player B Ruler: <span id="playerBRuler" onclick="showRulerAbilities('playerB')">None</span></div>
-  <div id="ruler-abilities" style="display: none;"></div>
-  <div>Status: <span id="status">Loading...</span></div>
-  <div>Turn: <span id="turn">?</span></div>
-  <div>Move History: <span id="moveHistory">None</span></div>
-  <div>Deck Size: <span id="deckSize">?</span></div>
-  <button id="play-button" onclick="playSelected()" disabled>Play Selected</button>
-  <button id="fort-continue-button" onclick="fortContinue()" style="display: none;">Continue Fort</button>
-  <button id="fort-destroy-button" onclick="fortDestroy()" style="display: none;">Destroy Fort</button>
-  <div id="pair5-buttons" style="display: none;"></div>
-  <div id="pair7-buttons" style="display: none;"></div>
-  <div id="pair6-buttons" style="display: none;"></div>
-  <div>
-    <input id="cardInput" type="text" placeholder="e.g., 8DA (Player A) or KSD (discard)">
-    <button onclick="addCards()">Add Card</button>
-    <button onclick="resetGame()">Reset Game</button>
-  </div>
-  <script src="/script.js"></script>
+    <div id="game-container">
+        <h1>Card Game</h1>
+        <div id="status"></div>
+        <div id="discard">Discard: <span id="discard-card"></span></div>
+        <div id="player-a">
+            <h2>Player A</h2>
+            <p>Ruler: <span id="player-a-ruler"></span></p>
+            <div id="player-a-hand"></div>
+        </div>
+        <div id="player-b">
+            <h2>Player B</h2>
+            <p>Ruler: <span id="player-b-ruler"></span></p>
+            <div id="player-b-hand"></div>
+        </div>
+        <div id="pair-options">
+            <div id="pair-5-options" style="display: none;">
+                <h3>Pair 5: Select Discard Card</h3>
+                <div id="discard-pile-top"></div>
+            </div>
+            <div id="pair-7-options" style="display: none;">
+                <h3>Pair 7: Select Deck Card</h3>
+                <div id="deck-top-two"></div>
+            </div>
+            <button id="confirm-swap-btn" style="display: none;">Confirm Swap</button>
+        </div>
+        <div id="controls">
+            <button id="play-btn">Play Selected</button>
+            <button id="draw-btn" style="display: none;">Draw</button>
+            <button id="reset-btn">Reset Game</button>
+            <input id="add-card-input" placeholder="e.g., 8DA (Player A), KSD (discard)">
+            <button id="add-card-btn">Add Card</button>
+        </div>
+        <div id="move-history">
+            <h3>Move History</h3>
+            <ul id="history-list"></ul>
+        </div>
+    </div>
+    <script src="/script.js"></script>
 </body>
 </html>
