@@ -1,5 +1,6 @@
 let selectedCards = [];
 let currentPhase = 'setup'; // Track the game phase
+let abilityDescription = ''; // Store the ability description to display
 
 async function fetchGameState() {
   try {
@@ -15,7 +16,7 @@ async function fetchGameState() {
 }
 
 function updateUI(game) {
-  document.getElementById('status').textContent = game.status;
+  document.getElementById('status').textContent = game.status + (abilityDescription ? ` | Ability: ${abilityDescription}` : '');
   document.getElementById('turn').textContent = String.fromCharCode(65 + game.turn);
   document.getElementById('discard').textContent = game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None';
   document.getElementById('deckSize').textContent = game.deck.length;
@@ -132,7 +133,12 @@ function selectCard(card, playerIndex) {
 
   if (currentPhase === 'setup') {
     // During ruler selection, replace the selected card instead of toggling
-    selectedCards = [card]; // Always set to the newly clicked card
+    selectedCards = [card];
+    // Show ruler ability description
+    const [rank, suitChar] = [card.slice(0, -1), card.slice(-1)];
+    const suit = ['Diamonds', 'Hearts', 'Spades', 'Clubs'].find(s => s[0] === suitChar);
+    const rulerKey = rank === 'A' ? `A-${suit}` : rank;
+    abilityDescription = rulerAbilities.ranks[rulerKey] || rulerAbilities.suits[suit] || 'No special ability';
   } else {
     // Normal behavior for other phases: toggle selection
     const index = selectedCards.indexOf(card);
@@ -140,6 +146,20 @@ function selectCard(card, playerIndex) {
       selectedCards.push(card);
     } else {
       selectedCards.splice(index, 1);
+    }
+    // Show pair or ToaK ability if applicable
+    if (selectedCards.length === 2 && selectedCards.every(c => {
+      const [r] = [c.slice(0, -1)];
+      return r === selectedCards[0].slice(0, -1);
+    })) {
+      abilityDescription = rulerAbilities.pairs[selectedCards[0].slice(0, -1)] || 'No pair ability';
+    } else if (selectedCards.length === 3 && selectedCards.every(c => {
+      const [r] = [c.slice(0, -1)];
+      return r === selectedCards[0].slice(0, -1);
+    })) {
+      abilityDescription = 'Three of a Kind: Activates Fort (same as Pair 9)';
+    } else {
+      abilityDescription = '';
     }
   }
 
@@ -154,6 +174,7 @@ function selectCard(card, playerIndex) {
 
   // Update the move input field with the selected cards
   document.getElementById('moveInput').value = selectedCards.join(',');
+  updateUI({ ...gameStates['default'], status: gameStates['default'].status }); // Refresh UI to show ability
 }
 
 async function makeMove() {
@@ -163,6 +184,7 @@ async function makeMove() {
       const response = await fetch(`/api/game?players=2&move=${move}`, { method: 'POST' });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       selectedCards = [];
+      abilityDescription = ''; // Clear ability description after move
       document.getElementById('moveInput').value = '';
       fetchGameState();
     }
