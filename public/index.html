@@ -3,29 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Rogue Ace - Developer Mode</title>
+  <title>Rogue Ace</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div id="game">
-    <h1>The Rogue Ace - Developer Mode</h1>
-    <div>Status: <span id="status">Loading...</span></div>
-    <div>Turn: <span id="turn">?</span></div>
-    <div>Discard: <span id="discard">None</span></div>
-    <div>Player A Hand: <span id="playerAHand">[]</span></div>
-    <div>Player B Hand: <span id="playerBHand">[]</span></div>
-    <div>Player A Ruler: <span id="playerARuler" onclick="showRulerAbilities('playerA')">None</span></div>
-    <div>Player B Ruler: <span id="playerBRuler" onclick="showRulerAbilities('playerB')">None</span></div>
-    <div>Move History: <span id="moveHistory">None</span></div>
-    <div>Deck Size: <span id="deckSize">?</span></div>
-    <div id="ruler-abilities" style="display: none;"></div>
-    <div>
-      <input id="cardInput" type="text" placeholder="e.g., 8DA (A), KSD (discard)">
-      <button id="addCardsBtn" onclick="addCards()">Add Cards</button>
-      <button id="draw-button" onclick="fetchGame('draw')">Draw</button>
-      <button id="play-button" onclick="playSelected()">Play</button>
-      <button onclick="resetGame()">Reset</button>
-    </div>
+  <h1>Rogue Ace</h1>
+  <div>Discard: <span id="discard">None</span></div>
+  <div>Player A Hand: <span id="playerAHand">Empty</span></div>
+  <div>Player B Hand: <span id="playerBHand">Empty</span></div>
+  <div>Player A Ruler: <span id="playerARuler" onclick="showRulerAbilities('playerA')">None</span></div>
+  <div>Player B Ruler: <span id="playerBRuler" onclick="showRulerAbilities('playerB')">None</span></div>
+  <div id="ruler-abilities" style="display: none;"></div>
+  <div>Status: <span id="status">Loading...</span></div>
+  <div>Turn: <span id="turn">?</span></div>
+  <div>Move History: <span id="moveHistory">None</span></div>
+  <div>Deck Size: <span id="deckSize">?</span></div>
+  <button id="play-button" onclick="playSelected()" disabled>Play Selected</button>
+  <button id="draw-button" onclick="fetchGame('draw')" style="display: none;">Draw</button>
+  <button id="fort-continue-button" onclick="fortContinue()" style="display: none;">Continue Fort</button>
+  <button id="fort-destroy-button" onclick="fortDestroy()" style="display: none;">Destroy Fort</button>
+  <div>
+    <input id="cardInput" type="text" placeholder="e.g., 8DA (Player A) or KSD (discard)">
+    <button onclick="addCards()">Add Card</button>
+    <button onclick="resetGame()">Reset Game</button>
   </div>
   <script src="/script.js"></script>
 </body>
