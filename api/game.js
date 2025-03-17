@@ -82,7 +82,7 @@ function handler(req, res) {
     }
 
     function isValidPlay(cards, top) {
-      if (cards.length === 0 || hasDuplicateCards(cards)) return false; // Keep this for gameplay
+      if (cards.length === 0 || hasDuplicateCards(cards)) return false;
       console.log('isValidPlay called with top:', top);
       const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
       const isEven = r => rankValue(r) % 2 === 0;
@@ -155,7 +155,7 @@ function handler(req, res) {
 
       if (cards.length === 2) {
         if (isPair) return cards.every(card => isValidPlay([card], top));
-        if ((rulerSuit === 'Clubs' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Clubs')) && game.players[game.turn].hand.length >= 7) {
+        if ((rulerSuit === 'Clubs' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Clubs')) && game.players[game.turn].hand.length >= 5) {
           return cards.every(card => isValidPlay([card], top));
         }
         if ((rulerSuit === 'Diamonds' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Diamonds')) && cards.some(c => c.suit === 'Diamonds') && !isPair) return true;
@@ -293,7 +293,6 @@ function handler(req, res) {
             game.status = 'Invalid rank or suit!';
           } else {
             const card = { rank: validRank, suit };
-            // Removed duplicate check to allow adding cards freely in developer mode
             if (target === 'D') {
               game.discardPile.push(game.discard);
               game.discard = card;
@@ -408,7 +407,7 @@ function handler(req, res) {
           return suit && ranks.includes(rank) ? { rank, suit } : null;
         }).filter(c => c);
         const isPair = cards.length === 2 && cards[0].rank === cards[1].rank;
-        const isStrikePair = cards.length === 2 && !isPair && game.players[game.turn].ruler && (game.players[game.turn].ruler.suit === 'Clubs' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Clubs')) && game.players[game.turn].hand.length >= 7;
+        const isStrikePair = cards.length === 2 && !isPair && game.players[game.turn].ruler && (game.players[game.turn].ruler.suit === 'Clubs' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Clubs')) && game.players[game.turn].hand.length >= 5;
         const isToaK = cards.length === 3 && cards.every(c => c.rank === cards[0].rank);
         const rankValue = r => ({ A: 1, J: 11, Q: 12, K: 13 }[r] || parseInt(r));
 
