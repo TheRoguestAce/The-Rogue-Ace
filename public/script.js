@@ -101,9 +101,8 @@ function updateDisplay(data) {
   if (data.fortActive) document.getElementById('status').textContent += ` (Fort active${data.fortRank ? ` - ${data.fortRank}` : ''})`;
   if (data.skipNext) document.getElementById('status').textContent += ` (Next skip: ${data.skipNext})`;
 
-  if (data.phase === 'setup' && selectedCards.length === 1) {
-    showRulerAbilities(data.turn === 'A' ? 'playerA' : 'playerB', selectedCards[0]);
-  }
+  // Show abilities based on selected cards
+  showAbilities(data);
 }
 
 function toggleCard(card) {
@@ -135,16 +134,43 @@ function resetGame() {
   fetchGame('', true);
 }
 
-function showRulerAbilities(player, card = null) {
+function showAbilities(data) {
+  const abilitiesDiv = document.getElementById('ruler-abilities');
+  let abilitiesText = '';
+
+  if (selectedCards.length === 1 && data.phase === 'setup') {
+    // Single card in setup: show ruler abilities
+    const card = selectedCards[0];
+    const rank = card.slice(0, -1);
+    const suit = card.slice(-1) === 'D' ? 'Diamonds' : card.slice(-1) === 'H' ? 'Hearts' : card.slice(-1) === 'S' ? 'Spades' : 'Clubs';
+    abilitiesText = `${suit}: ${rulerAbilities.suits[suit]}<br>${rank}: ${rulerAbilities.ranks[rank] || rulerAbilities.ranks[`${rank}-${suit}`]}`;
+  } else if (selectedCards.length === 2 || selectedCards.length === 3) {
+    // Check for pair or ToaK
+    const ranks = selectedCards.map(card => card.slice(0, -1));
+    const isPair = selectedCards.length === 2 && ranks[0] === ranks[1];
+    const isToaK = selectedCards.length === 3 && ranks.every(r => r === ranks[0]);
+
+    if (isPair) {
+      const rank = ranks[0];
+      abilitiesText = `Pair ${rank}: ${rulerAbilities.pairs[rank]}`;
+    } else if (isToaK) {
+      const rank = ranks[0];
+      abilitiesText = rank === 'A' 
+        ? `Three of a Kind ${rank}: All opponents draw 8 cards`
+        : `Three of a Kind ${rank}: Creates a fort (only pairs or better can play until destroyed or your next turn)`;
+    }
+  }
+
+  abilitiesDiv.innerHTML = abilitiesText;
+  abilitiesDiv.style.display = abilitiesText ? 'block' : 'none';
+}
+
+function showRulerAbilities(player) {
   const abilitiesDiv = document.getElementById('ruler-abilities');
   const ruler = player === 'playerA' ? data.playerARuler : data.playerBRuler;
   let abilitiesText = '';
 
-  if (card && data.phase === 'setup') {
-    const rank = card.slice(0, -1);
-    const suit = card.slice(-1) === 'D' ? 'Diamonds' : card.slice(-1) === 'H' ? 'Hearts' : card.slice(-1) === 'S' ? 'Spades' : 'Clubs';
-    abilitiesText = `${suit}: ${rulerAbilities.suits[suit]}<br>${rank}: ${rulerAbilities.ranks[rank] || rulerAbilities.ranks[`${rank}-${suit}`]}`;
-  } else if (ruler !== 'None') {
+  if (ruler !== 'None') {
     const rank = ruler.slice(0, -1);
     const suit = ruler.slice(-1) === 'D' ? 'Diamonds' : ruler.slice(-1) === 'H' ? 'Hearts' : ruler.slice(-1) === 'S' ? 'Spades' : 'Clubs';
     abilitiesText = `${suit}: ${rulerAbilities.suits[suit]}<br>${rank}: ${rulerAbilities.ranks[rank] || rulerAbilities.ranks[`${rank}-${suit}`]}`;
