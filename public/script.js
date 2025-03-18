@@ -13,22 +13,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const historyList = document.getElementById('history-list');
     const pair5Options = document.getElementById('pair-5-options');
     const pair7Options = document.getElementById('pair-7-options');
-    const pair6Options = document.getElementById('pair-6-options');
     const discardPileTop = document.getElementById('discard-pile-top');
     const deckTopTwo = document.getElementById('deck-top-two');
-    const opponentsList = document.getElementById('opponents-list');
     const confirmSwapBtn = document.getElementById('confirm-swap-btn');
-    const confirmSkipBtn = document.getElementById('confirm-skip-btn');
-    const pair5Swap = document.getElementById('pair-5-swap');
-    const pair5SwapCards = document.getElementById('pair-5-swap-cards');
-    const pair7Swap = document.getElementById('pair-7-swap');
-    const pair7SwapCards = document.getElementById('pair-7-swap-cards');
 
     let selectedCards = [];
     let selectedDiscard = null;
     let selectedDeck = null;
     let selectedHandForSwap = null;
-    let selectedOpponent = null;
     let sessionId = 'default';
 
     function fetchGameState() {
@@ -67,11 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 drawBtn.style.display = data.phase === 'play' && !data.canPlay ? 'inline-block' : 'none';
 
-                pair5Options.style.display = data.pair5Pending ? 'block' : 'none';
-                pair7Options.style.display = data.pair7Pending ? 'block' : 'none';
-                pair6Options.style.display = data.pair6Pending ? 'block' : 'none';
+                pair5Options.style.display = data.pair5Pending && !data.pair5DiscardChoice ? 'block' : 'none';
+                pair7Options.style.display = data.pair7Pending && !data.pair7DeckChoice ? 'block' : 'none';
                 confirmSwapBtn.style.display = (data.pair5Pending && data.pair5DiscardChoice) || (data.pair7Pending && data.pair7DeckChoice) ? 'inline-block' : 'none';
-                confirmSkipBtn.style.display = data.pair6Pending ? 'inline-block' : 'none';
 
                 if (data.pair5Pending && !data.pair5DiscardChoice) {
                     discardPileTop.innerHTML = '';
@@ -82,17 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         cardEl.addEventListener('click', () => toggleCard(cardEl, card, 'discard'));
                         discardPileTop.appendChild(cardEl);
                     });
-                    pair5Swap.style.display = 'block';
-                    pair5SwapCards.innerHTML = '';
-                    data.discardPileTop.forEach(card => {
-                        const cardEl = document.createElement('span');
-                        cardEl.textContent = card;
-                        cardEl.classList.add('card');
-                        cardEl.addEventListener('click', () => toggleCard(cardEl, card, 'discard'));
-                        pair5SwapCards.appendChild(cardEl);
-                    });
-                } else {
-                    pair5Swap.style.display = 'none';
                 }
 
                 if (data.pair7Pending && !data.pair7DeckChoice) {
@@ -103,28 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         cardEl.classList.add('card');
                         cardEl.addEventListener('click', () => toggleCard(cardEl, card, 'deck'));
                         deckTopTwo.appendChild(cardEl);
-                    });
-                    pair7Swap.style.display = 'block';
-                    pair7SwapCards.innerHTML = '';
-                    data.deckTopTwo.forEach(card => {
-                        const cardEl = document.createElement('span');
-                        cardEl.textContent = card;
-                        cardEl.classList.add('card');
-                        cardEl.addEventListener('click', () => toggleCard(cardEl, card, 'deck'));
-                        pair7SwapCards.appendChild(cardEl);
-                    });
-                } else {
-                    pair7Swap.style.display = 'none';
-                }
-
-                if (data.pair6Pending) {
-                    opponentsList.innerHTML = '';
-                    data.opponents.forEach(opponent => {
-                        const opEl = document.createElement('span');
-                        opEl.textContent = opponent;
-                        opEl.classList.add('card');
-                        opEl.addEventListener('click', () => toggleOpponent(opEl, opponent));
-                        opponentsList.appendChild(opEl);
                     });
                 }
             })
@@ -152,17 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (type === 'discard') selectedDiscard = card;
             else if (type === 'deck') selectedDeck = card;
             else if (type === 'hand' && (selectedDiscard || selectedDeck)) selectedHandForSwap = card;
-        }
-    }
-
-    function toggleOpponent(opEl, opponent) {
-        if (opEl.classList.contains('selected')) {
-            opEl.classList.remove('selected');
-            selectedOpponent = null;
-        } else {
-            document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
-            opEl.classList.add('selected');
-            selectedOpponent = opponent;
         }
     }
 
@@ -224,19 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     fetchGameState();
                 })
                 .catch(err => console.error('Pair 7 swap error:', err));
-        }
-    });
-
-    confirmSkipBtn.addEventListener('click', () => {
-        if (selectedOpponent) {
-            const targetIdx = selectedOpponent.charCodeAt(0) - 65;
-            fetch(`/api/game?session=${sessionId}&pair6Target=${targetIdx}`, { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    selectedOpponent = null;
-                    fetchGameState();
-                })
-                .catch(err => console.error('Pair 6 skip error:', err));
         }
     });
 
