@@ -4,55 +4,40 @@ body {
   background-color: #f0f0f0;
 }
 
-#game {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
 h1 {
-  text-align: center;
   color: #333;
+  text-align: center;
 }
 
-p {
-  margin: 5px 0;
+#gameInfo, #players, #controls, #history {
+  margin: 10px 0;
+  padding: 10px;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 5px;
 }
 
 .card {
-  cursor: pointer;
-  padding: 2px 5px;
-  border: 1px solid #ccc;
+  padding: 5px 10px;
+  margin: 2px;
+  background-color: #fff;
+  border: 1px solid #000;
   border-radius: 3px;
-  margin: 0 2px;
-  display: inline-block;
+  cursor: pointer;
 }
 
 .card:hover {
-  background-color: #f0f0f0;
+  background-color: #f9f9f9;
 }
 
-#controls {
-  margin-top: 20px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-input[type="text"] {
-  padding: 5px;
-  font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
+.card.selected {
+  background-color: #ddd;
 }
 
 button {
   padding: 5px 10px;
-  font-size: 16px;
-  background-color: #007BFF;
+  margin: 5px;
+  background-color: #4CAF50;
   color: white;
   border: none;
   border-radius: 3px;
@@ -60,17 +45,12 @@ button {
 }
 
 button:hover {
-  background-color: #0056b3;
+  background-color: #45a049;
 }
 
-ul {
-  list-style: none;
-  padding: 0;
-}
-
-li {
-  margin: 5px 0;
+input {
   padding: 5px;
-  background-color: #f9f9f9;
-  border-left: 3px solid #007BFF;
+  margin: 5px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
 }
