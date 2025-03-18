@@ -1,68 +1,50 @@
 body {
-    font-family: Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-    background-color: #f0f0f0;
+  font-family: Arial, sans-serif;
 }
 
-#game-container {
-    text-align: center;
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+#game {
+  max-width: 600px;
+  margin: 20px auto;
 }
 
 .card {
-    display: inline-block;
-    margin: 5px;
-    padding: 10px;
-    background: #ddd;
-    border-radius: 5px;
-    cursor: pointer;
+  padding: 5px;
+  border: 1px solid #000;
+  margin: 2px;
+  display: inline-block;
+  cursor: pointer;
 }
 
-.card.selected {
-    background: #aaf;
+.red {
+  color: red;
 }
 
-#controls {
-    margin: 20px 0;
+.selected {
+  background: #ffd700;
+}
+
+#status {
+  color: #d90429;
 }
 
 button {
-    padding: 10px 20px;
-    margin: 0 5px;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
+  margin: 5px;
+  padding: 5px 10px;
 }
 
-button:hover {
-    background: #0056b3;
+#cardInput {
+  padding: 5px;
+  width: 150px;
+  margin: 5px;
 }
 
-input {
-    padding: 10px;
-    margin: 0 5px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+#ruler-abilities {
+  margin: 5px;
+  padding: 5px;
+  background-color: #f0f0f0;
 }
 
-#move-history {
-    margin-top: 20px;
-}
-
-#history-list {
-    list-style: none;
-    padding: 0;
-}
-
-#history-list li {
-    margin: 5px 0;
+#playerARuler, #playerBRuler {
+  cursor: pointer;
+  text-decoration: underline;
 }
