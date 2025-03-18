@@ -1,33 +1,68 @@
 body {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  margin: 20px;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f0f0f0;
+}
+
+#game-container {
+    text-align: center;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
 .card {
-  cursor: pointer;
-  padding: 5px 10px;
-  margin: 2px;
-  border: 1px solid #ccc;
-  display: inline-block;
+    display: inline-block;
+    margin: 5px;
+    padding: 10px;
+    background: #ddd;
+    border-radius: 5px;
+    cursor: pointer;
 }
 
-.card:hover {
-  background-color: #f0f0f0;
-}
-
-#players div {
-  margin: 10px 0;
+.card.selected {
+    background: #aaf;
 }
 
 #controls {
-  margin: 20px 0;
+    margin: 20px 0;
 }
 
-#history {
-  list-style-type: none;
-  padding: 0;
-  text-align: left;
-  max-height: 100px;
-  overflow-y: auto;
+button {
+    padding: 10px 20px;
+    margin: 0 5px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+input {
+    padding: 10px;
+    margin: 0 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+#move-history {
+    margin-top: 20px;
+}
+
+#history-list {
+    list-style: none;
+    padding: 0;
+}
+
+#history-list li {
+    margin: 5px 0;
 }
