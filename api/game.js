@@ -39,8 +39,7 @@ function handler(req, res) {
       pair7Pending: false,
       pair7DeckChoice: null,
       pair7HandChoice: null,
-      pair6Pending: false,
-      resetTriggered: false // New flag to prevent infinite resets
+      pair6Pending: false
     };
 
     function shuffle(array) {
@@ -99,9 +98,7 @@ function handler(req, res) {
       const topValue = top ? rankValue(top.rank) : 0;
 
       if (!top && game.phase === 'play') {
-        if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds')) {
-          if (cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0 && !isPair)) return true;
-        }
+        if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds') && cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0)) return !isPair;
         if ((rulerSuit === 'Diamonds' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.suit === 'Diamonds')) && cards.length === 2 && cards.some(c => c.suit === 'Diamonds') && !isPair) return true;
         if ((rulerRank === '3' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '3')) && cards.length === 1 && cards[0].rank === '7') return true;
         if ((rulerRank === '7' || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === '7')) && cards.length === 1 && cards[0].rank === '3') return true;
@@ -147,7 +144,7 @@ function handler(req, res) {
         const pocketValue = (rulerRank === 'A' && rulerSuit === 'Spades') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Spades') ? Math.floor(value / 2) : null;
         let matches = top && top.suit && top.rank && (card.suit === top.suit || card.rank === top.rank || value % 2 === topValue % 2);
 
-        if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds')) matches = !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0;
+        if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds') && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) matches = true;
         if ((rulerRank === 'A' && rulerSuit === 'Hearts') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Hearts')) matches = true;
         if ((rulerRank === 'A' && rulerSuit === 'Spades') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Spades')) matches = matches || (top && top.rank && pocketValue === topValue);
         if ((rulerRank === 'A' && rulerSuit === 'Clubs') || game.players.some(p => p.ruler && p.ruler.rank === 'K' && p.ruler.rank === 'A' && p.ruler.suit === 'Clubs')) matches = matches || (top && top.rank && Math.floor(value / 2) === topValue);
@@ -216,7 +213,7 @@ function handler(req, res) {
         'A-Diamonds': 'Perfect Card: Odd non-face cards (A,3,5,7,9) playable anytime (no pairs)',
         'A-Hearts': 'Otherworldly Touch: Hearts are wild cards, counting as every rank (no pairs)',
         'A-Spades': 'Pocket Knife: All cards count as both their rank and half rank rounded down (pairs OK)',
-        'A-Clubs': 'Nuclear Bomb: If another player wins without this ruler, reshuffle deck once, opponents draw 7, winner draws 5'
+        'A-Clubs': 'Nuclear Bomb: If another player wins without this ruler, reshuffle deck, opponents draw 7, winner draws 5'
       },
       pairs: {
         A: 'Pocket Aces: Until you play again, all opponents must play 10 or above',
@@ -224,13 +221,13 @@ function handler(req, res) {
         3: 'Feeling Off: Until you play again, all opponents must play odd numbers',
         4: 'Half the Cards: Until you play again, all opponents cannot play 8 or above',
         5: 'Medium Rare: See top 5 discard pile cards, swap one with a hand card',
-        6: 'Devilish Stare: Pick one opponent, they skip their next turn',
+        6: 'Devilish Stare: Pick one person, they skip their next turn',
         7: 'Double Luck: See top 2 deck cards, swap one with a hand card',
         8: 'Good Fortune: Play again and set discard (choose either card)',
         9: 'Fort: Only pairs or better can play until destroyed or your next turn; all opponents draw 1 if no pair',
         10: 'Feeling Right: Until you play again, all opponents must play even numbers',
         J: 'High Card: Until you play again, all opponents must play 8 or above',
-        Q: 'Complaint: All opponents draw 1, play again and set any discard (choose either card)',
+        Q: 'Complaint: All opponents draw 1, play again and set discard (choose either card)',
         K: 'I am your Father: Until you play again, all opponents alternate even/odd (K/J odd)'
       }
     };
@@ -288,8 +285,7 @@ function handler(req, res) {
           pair7Pending: false,
           pair7DeckChoice: null,
           pair7HandChoice: null,
-          pair6Pending: false,
-          resetTriggered: false
+          pair6Pending: false
         };
       } else if (addCards) {
         const match = addCards.match(/^([A2-9JQK]|10)([DHSC])([A-Z])$/i);
@@ -463,7 +459,7 @@ function handler(req, res) {
           }
         } else if (game.phase === 'play') {
           const indices = cards.map(card => game.players[game.turn].hand.findIndex(c => c.rank === card.rank && c.suit === card.suit));
-          if (indices.some(i => i === -1)) {
+          if (indices.some(i => i === -1) || !isValidPlay(cards, game.discard)) {
             game.status = 'Invalid play!';
           } else {
             const sortedIndices = indices.sort((a, b) => b - a);
@@ -475,11 +471,7 @@ function handler(req, res) {
             const opponents = getOpponents(game.turn);
 
             if (isPair && (cards[0].rank === '8' || cards[0].rank === 'Q')) {
-              if (cards[0].rank === 'Q' || (cards[0].rank === '8' && game.extraTurn)) {
-                game.discard = playedCards[0]; // Allow any card for Pair Q
-              } else {
-                game.discard = playedCards[Math.floor(Math.random() * playedCards.length)];
-              }
+              game.discard = playedCards[Math.floor(Math.random() * playedCards.length)];
             } else {
               game.discard = playedCards[0];
             }
@@ -586,7 +578,7 @@ function handler(req, res) {
                     break;
                   case '6':
                     game.pair6Pending = true;
-                    pairEffectMessage = `Pair 6: Choose an opponent to skip their next turn`;
+                    pairEffectMessage = `Pair 6: Choose a player to skip their next turn`;
                     game.extraTurn = true;
                     break;
                   case '7':
@@ -680,7 +672,7 @@ function handler(req, res) {
               const isAceClubs = rulerRank === 'A' && rulerSuit === 'Clubs';
               const isKing = rulerRank === 'K';
               const anotherHasAceClubs = game.players.some((p, idx) => idx !== game.turn && p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Clubs');
-              const shouldReset = (isKing || (!isAceClubs && anotherHasAceClubs)) && game.deck.length >= 5 + 7 * (playerCount - 1) && !game.resetTriggered;
+              const shouldReset = (isKing || (!isAceClubs && anotherHasAceClubs)) && game.deck.length >= 5 + 7 * (playerCount - 1);
 
               if (shouldReset) {
                 game.deck.push(...game.discardPile);
@@ -689,7 +681,6 @@ function handler(req, res) {
                 opponents.forEach(idx => game.players[idx].hand = dealHand(7));
                 game.players[game.turn].hand = dealHand(5);
                 game.phase = 'play';
-                game.resetTriggered = true; // Set flag to prevent further resets
                 game.status = `Player ${getPlayerLabel(game.turn)} wins! Replay with ${isKing ? 'Ruler K' : 'Nuclear Bomb'}!`;
                 game.moveHistory.unshift(`Deck reshuffled: Opponents drew 7, winner drew 5 (${isKing ? 'Ruler K' : 'Nuclear Bomb'})`);
               } else {
@@ -697,7 +688,7 @@ function handler(req, res) {
                 game.phase = 'over';
               }
             } else if (game.extraTurn && (cards[0].rank === '8' || cards[0].rank === 'Q' || cards[0].rank === '6') && (isPair || isStrikePair)) {
-              game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: ${cards[0].rank === '8' ? 'Play again and set discard!' : (cards[0].rank === '6' ? 'Choose opponent to skip!' : 'Play again and set discard!')}`;
+              game.status = `Player ${getPlayerLabel(game.turn)}\'s turn: ${cards[0].rank === '8' ? 'Play again and set discard!' : (cards[0].rank === '6' ? 'Choose player to skip!' : 'Play again and set discard!')}`;
             } else if (!game.fortChoicePending && !game.pair5Pending && !game.pair7Pending && !game.pair6Pending) {
               game.turn = (game.turn + 1) % game.players.length;
               if (game.skipNext === game.turn) {
@@ -740,8 +731,7 @@ function handler(req, res) {
       pair5DiscardChoice: game.pair5DiscardChoice,
       pair7Pending: game.pair7Pending,
       pair7DeckChoice: game.pair7DeckChoice,
-      pair6Pending: game.pair6Pending,
-      opponents: getOpponents(game.turn).map(idx => getPlayerLabel(idx)) // Add opponents list for Pair 6
+      pair6Pending: game.pair6Pending
     });
   } catch (error) {
     console.error('Handler error:', error);
