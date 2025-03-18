@@ -1,56 +1,76 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Card Game</title>
-    <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-    <div id="game-container">
-        <h1>Card Game</h1>
-        <div id="status"></div>
-        <div id="discard">Discard: <span id="discard-card"></span></div>
-        <div id="player-a">
-            <h2>Player A</h2>
-            <p>Ruler: <span id="player-a-ruler"></span></p>
-            <div id="player-a-hand"></div>
-        </div>
-        <div id="player-b">
-            <h2>Player B</h2>
-            <p>Ruler: <span id="player-b-ruler"></span></p>
-            <div id="player-b-hand"></div>
-        </div>
-        <div id="pair-options">
-            <div id="pair-5-options" style="display: none;">
-                <h3>Pair 5: Select Discard Card</h3>
-                <div id="discard-pile-top"></div>
-                <div id="pair-5-swap" style="display: none;">Swap your card out for: <div id="pair-5-swap-cards"></div></div>
-            </div>
-            <div id="pair-7-options" style="display: none;">
-                <h3>Pair 7: Select Deck Card</h3>
-                <div id="deck-top-two"></div>
-                <div id="pair-7-swap" style="display: none;">Swap your card out for: <div id="pair-7-swap-cards"></div></div>
-            </div>
-            <div id="pair-6-options" style="display: none;">
-                <h3>Pair 6: Select Opponent</h3>
-                <div id="opponents-list"></div>
-            </div>
-            <button id="confirm-swap-btn" style="display: none;">Confirm Swap</button>
-            <button id="confirm-skip-btn" style="display: none;">Confirm Skip</button>
-        </div>
-        <div id="controls">
-            <button id="play-btn">Play Selected</button>
-            <button id="draw-btn" style="display: none;">Draw</button>
-            <button id="reset-btn">Reset Game</button>
-            <input id="add-card-input" placeholder="e.g., 8DA (Player A), KSD (discard)">
-            <button id="add-card-btn">Add Card</button>
-        </div>
-        <div id="move-history">
-            <h3>Move History</h3>
-            <ul id="history-list"></ul>
-        </div>
-    </div>
-    <script src="/script.js"></script>
-</body>
-</html>
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f0f0f0;
+}
+
+#game-container {
+    text-align: center;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+    display: inline-block;
+    margin: 5px;
+    padding: 10px;
+    background: #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.card.selected {
+    background: #aaf;
+}
+
+#controls, #pair-options {
+    margin: 20px 0;
+}
+
+button {
+    padding: 10px 20px;
+    margin: 0 5px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+input {
+    padding: 10px;
+    margin: 0 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+#move-history {
+    margin-top: 20px;
+}
+
+#history-list {
+    list-style: none;
+    padding: 0;
+}
+
+#history-list li {
+    margin: 5px 0;
+}
+
+#pair-5-options, #pair-7-options, #pair-6-options {
+    margin: 10px 0;
+}
+
+#pair-5-swap, #pair-7-swap {
+    margin-top: 10px;
+}
