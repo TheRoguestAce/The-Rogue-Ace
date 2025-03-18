@@ -619,6 +619,11 @@ function handler(req, res) {
           game.status = `Player ${game.turn + 1}'s turn!`;
         }
       } else if (move && game.phase === 'setup' && cards.length === 1) {
+        const cards = move.split(',').map(c => {
+          const rank = c.length === 3 ? c.slice(0, 2) : c[0];
+          const suitChar = c.length === 3 ? c[2] : c[1];
+          return { rank: rank === '10' ? '10' : ranks.find(r => r === rank.toUpperCase()), suit: suits.find(s => s[0] === suitChar.toUpperCase()) };
+        });
         game.players[game.turn].ruler = cards[0];
         game.moveHistory.unshift(`Player ${game.turn + 1} set ruler ${cards[0].rank}${cards[0].suit[0]}`);
         game.players[game.turn].hand = game.players[game.turn].hand.filter(h => !(h.rank === cards[0].rank && h.suit === cards[0].suit));
