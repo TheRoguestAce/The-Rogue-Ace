@@ -1,56 +1,76 @@
 body {
-  font-family: Arial, sans-serif;
-  margin: 20px;
-  background-color: #f0f0f0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f0f0f0;
 }
 
-h1 {
-  color: #333;
-  text-align: center;
-}
-
-#gameInfo, #players, #controls, #history {
-  margin: 10px 0;
-  padding: 10px;
-  background-color: #fff;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+#game-container {
+    text-align: center;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
 .card {
-  padding: 5px 10px;
-  margin: 2px;
-  background-color: #fff;
-  border: 1px solid #000;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-.card:hover {
-  background-color: #f9f9f9;
+    display: inline-block;
+    margin: 5px;
+    padding: 10px;
+    background: #ddd;
+    border-radius: 5px;
+    cursor: pointer;
 }
 
 .card.selected {
-  background-color: #ddd;
+    background: #aaf;
+}
+
+#controls, #pair-options {
+    margin: 20px 0;
 }
 
 button {
-  padding: 5px 10px;
-  margin: 5px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
+    padding: 10px 20px;
+    margin: 0 5px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
 }
 
 button:hover {
-  background-color: #45a049;
+    background: #0056b3;
 }
 
 input {
-  padding: 5px;
-  margin: 5px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
+    padding: 10px;
+    margin: 0 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+#move-history {
+    margin-top: 20px;
+}
+
+#history-list {
+    list-style: none;
+    padding: 0;
+}
+
+#history-list li {
+    margin: 5px 0;
+}
+
+#pair-5-options, #pair-7-options, #pair-6-options {
+    margin: 10px 0;
+}
+
+#pair-5-swap, #pair-7-swap {
+    margin-top: 10px;
 }
