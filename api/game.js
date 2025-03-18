@@ -111,7 +111,6 @@ function handler(req, res) {
       const topValue = top ? rankValue(top.rank) : 0;
       const kingRuler = game.players[game.turn].ruler && game.players[game.turn].ruler.rank === 'K';
 
-      // Base matching logic: Must match suit, rank, or even/odd
       const baseMatch = (card, top) => {
         if (!top) return false;
         const value = rankValue(card.rank);
@@ -131,7 +130,6 @@ function handler(req, res) {
         return matches;
       };
 
-      // Empty pile check
       if (!top && game.phase === 'play') {
         console.log('Empty pile check');
         if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds'))) {
@@ -164,7 +162,6 @@ function handler(req, res) {
         return false;
       }
 
-      // Fort restrictions
       if (game.fortActive && game.turn !== game.fortOwner) {
         if (!isPair && !isToaK) {
           console.log('Invalid: Fort requires pairs or ToaK');
@@ -185,7 +182,6 @@ function handler(req, res) {
         return false;
       }
 
-      // Pair effects
       if (game.pairEffect && game.turn !== game.pairEffectOwner) {
         const checkValue = c => {
           let value = rankValue(c.rank);
@@ -226,7 +222,6 @@ function handler(req, res) {
         }
       }
 
-      // Single card plays
       if (cards.length === 1) {
         const card = cards[0];
         const value = rankValue(card.rank);
@@ -236,7 +231,6 @@ function handler(req, res) {
         const pocketValue = (rulerRank === 'A' && rulerSuit === 'Spades') || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Spades')) ? Math.floor(value / 2) : null;
         let matches = baseMatch(card, top);
 
-        // Ruler effects that override base matching
         if ((rulerRank === 'A' && rulerSuit === 'Diamonds') || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === 'A' && p.ruler.suit === 'Diamonds'))) {
           matches = !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0;
         }
@@ -271,7 +265,6 @@ function handler(req, res) {
         return !!matches;
       }
 
-      // Two-card plays
       if (cards.length === 2) {
         if (isPair) {
           const validSingle = cards.every(card => isValidPlay([card], top));
@@ -291,27 +284,23 @@ function handler(req, res) {
         return false;
       }
 
-      // Three of a kind
       if (isToaK) {
         const validToaK = cards.every(card => isValidPlay([card], top));
         console.log(`ToaK play: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}, Valid: ${validToaK}`);
         return validToaK;
       }
 
-      // Ruler 10 even stack
       if ((rulerRank === '10' || (kingRuler && game.players.some(p => p.ruler && p.ruler.rank === '10'))) && cards.length >= 2 && cards.every(c => isEven(c.rank)) && top && top.rank && isEven(top.rank)) {
         console.log('Valid: Ruler 10 allows even stack');
         return !isPair;
       }
 
-      // Multi-card plays (2-4 of a kind)
       if (cards.length >= 2 && cards.length <= 4) {
         const validMulti = cards.every(c => c.rank === cards[0].rank && isValidPlay([c], top));
         console.log(`Multi play: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}, Valid: ${validMulti}`);
         return validMulti;
       }
 
-      // Five-card plays
       if (cards.length === 5) {
         const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
         const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || (values.join(',') === '1,10,11,12,13');
@@ -323,7 +312,6 @@ function handler(req, res) {
         return validFive;
       }
 
-      // Larger plays (straight or flush)
       if (cards.length > 5) {
         const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
         const isStraight = !hasDuplicateRanks(cards) && values.every((v, i) => i === 0 || v === values[i - 1] + 1);
@@ -390,13 +378,16 @@ function handler(req, res) {
         if (drawCount > 0) {
           game.players[game.turn].hand.push(...game.deck.splice(0, drawCount));
           game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} auto-drew ${drawCount} (no valid plays)`);
+          console.log(`Turn advancing due to auto-draw: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
           game.turn = (game.turn + 1) % game.players.length;
           if (game.skipNext === game.turn) {
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+            console.log(`Turn advancing due to skip: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
             game.turn = (game.turn + 1) % game.players.length;
             game.skipNext = null;
           }
           game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+          gameStates[sessionId] = game;
         }
       }
     }
@@ -475,19 +466,23 @@ function handler(req, res) {
         if (actualDraw > 0) {
           game.players[game.turn].hand.push(...game.deck.splice(0, actualDraw));
           game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} drew ${actualDraw}${game.fortActive && game.turn !== game.fortOwner ? ' (fort)' : ''}`);
+          console.log(`Turn advancing after draw: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
           game.turn = (game.turn + 1) % game.players.length;
           if (game.skipNext === game.turn) {
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+            console.log(`Turn advancing due to skip: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
             game.turn = (game.turn + 1) % game.players.length;
             game.skipNext = null;
           }
           game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+          gameStates[sessionId] = game;
         }
       } else if (pair5DiscardChoice && game.pair5Pending) {
         const topFive = [...new Map(game.discardPile.slice(-5).map(c => [`${c.rank}${c.suit[0]}`, c])).values()].reverse();
         if (topFive.some(c => `${c.rank}${c.suit[0]}` === pair5DiscardChoice)) {
           game.pair5DiscardChoice = pair5DiscardChoice;
           game.status = `Player ${getPlayerLabel(game.turn)}: Select a hand card to swap with ${pair5DiscardChoice}`;
+          gameStates[sessionId] = game;
         }
       } else if (pair5HandChoice && game.pair5Pending && game.pair5DiscardChoice) {
         const topFive = [...new Map(game.discardPile.slice(-5).map(c => [`${c.rank}${c.suit[0]}`, c])).values()].reverse();
@@ -503,19 +498,23 @@ function handler(req, res) {
           game.pair5Pending = false;
           game.pair5DiscardChoice = null;
           game.pair5HandChoice = null;
+          console.log(`Turn advancing after pair5 swap: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
           game.turn = (game.turn + 1) % game.players.length;
           if (game.skipNext === game.turn) {
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+            console.log(`Turn advancing due to skip: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
             game.turn = (game.turn + 1) % game.players.length;
             game.skipNext = null;
           }
           game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+          gameStates[sessionId] = game;
         }
       } else if (pair7DeckChoice && game.pair7Pending) {
         const topTwo = game.deck.slice(0, 2);
         if (topTwo.some(c => `${c.rank}${c.suit[0]}` === pair7DeckChoice)) {
           game.pair7DeckChoice = pair7DeckChoice;
           game.status = `Player ${getPlayerLabel(game.turn)}: Select a hand card to swap with ${pair7DeckChoice}`;
+          gameStates[sessionId] = game;
         }
       } else if (pair7HandChoice && game.pair7Pending && game.pair7DeckChoice) {
         const topTwo = game.deck.slice(0, 2);
@@ -530,13 +529,16 @@ function handler(req, res) {
           game.pair7Pending = false;
           game.pair7DeckChoice = null;
           game.pair7HandChoice = null;
+          console.log(`Turn advancing after pair7 swap: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
           game.turn = (game.turn + 1) % game.players.length;
           if (game.skipNext === game.turn) {
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+            console.log(`Turn advancing due to skip: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
             game.turn = (game.turn + 1) % game.players.length;
             game.skipNext = null;
           }
           game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+          gameStates[sessionId] = game;
         }
       } else if (pair6Target && game.pair6Pending) {
         const targetIdx = parseInt(pair6Target);
@@ -545,13 +547,16 @@ function handler(req, res) {
           game.moveHistory.unshift(`Player ${getPlayerLabel(targetIdx)} will skip next turn (Pair 6)`);
           game.pair6Pending = false;
           game.extraTurn = false;
+          console.log(`Turn advancing after pair6 target: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
           game.turn = (game.turn + 1) % game.players.length;
           if (game.skipNext === game.turn) {
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+            console.log(`Turn advancing due to skip: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
             game.turn = (game.turn + 1) % game.players.length;
             game.skipNext = null;
           }
           game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+          gameStates[sessionId] = game;
         }
       } else if (fortChoice) {
         if (game.fortChoicePending && game.turn === game.fortChoicePlayer) {
@@ -566,13 +571,16 @@ function handler(req, res) {
           }
           game.fortChoicePending = false;
           game.fortChoicePlayer = null;
+          console.log(`Turn advancing after fort choice: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
           game.turn = (game.turn + 1) % game.players.length;
           if (game.skipNext === game.turn) {
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+            console.log(`Turn advancing due to skip: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
             game.turn = (game.turn + 1) % game.players.length;
             game.skipNext = null;
           }
           game.status = `Player ${getPlayerLabel(game.turn)}\'s turn!`;
+          gameStates[sessionId] = game;
         }
       } else if (move) {
         const cards = move.split(',').map(c => {
@@ -593,9 +601,11 @@ function handler(req, res) {
             game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} set ruler ${cards[0].rank}${cards[0].suit[0]}`);
             game.players[game.turn].hand = game.players[game.turn].hand.filter(h => !(h.rank === cards[0].rank && h.suit === cards[0].suit));
             game.players[game.turn].hand.push(...dealHand(1));
-            game.turn = (game.turn + 1) % game.players.length; // Advance turn after ruler selection
+            console.log(`Turn advancing after ruler selection: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
+            game.turn = (game.turn + 1) % game.players.length;
             game.status = game.players.every(p => p.ruler) ? 'All rulers set! Game starts!' : `Player ${getPlayerLabel(game.turn)}\'s turn: Pick your ruler!`;
             if (game.players.every(p => p.ruler)) game.phase = 'play';
+            gameStates[sessionId] = game;
           }
         } else if (game.phase === 'play' && isValidPlay(cards, game.discard)) {
           game.players[game.turn].hand = game.players[game.turn].hand.filter(h => !cards.some(c => c.rank === h.rank && c.suit === h.suit));
@@ -650,9 +660,9 @@ function handler(req, res) {
               game.extraTurn = true;
               game.status = `Player ${getPlayerLabel(game.turn)}: Play again and set discard (Pair Q)`;
             } else if (rank === 'K') {
-              game.kingAlternation = true; // Start with even
+              game.kingAlternation = true;
             }
-          } else if (isToaK) {
+          } else if (game.lastPlayType === 'multi' && cards.length === 3) {
             game.fortActive = true;
             game.fortCard = cards[0];
             game.fortRank = rank;
@@ -729,9 +739,11 @@ function handler(req, res) {
             game.fortRank = null;
             game.fortOwner = null;
             game.moveHistory.unshift(`Fort destroyed by ${getPlayerLabel(game.turn)}'s non-pair play`);
+            console.log(`Turn advancing after fort destroy: ${game.turn} -> ${game.extraTurn ? game.turn : (game.turn + 1) % game.players.length}`);
             game.turn = game.extraTurn ? game.turn : (game.turn + 1) % game.players.length;
             if (game.skipNext === game.turn) {
               game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+              console.log(`Turn advancing due to skip: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
               game.turn = (game.turn + 1) % game.players.length;
               game.skipNext = null;
             }
@@ -745,9 +757,11 @@ function handler(req, res) {
             } else if (game.pairEffect === 'K') {
               game.kingAlternation = !game.kingAlternation;
             }
-            game.turn = game.extraTurn ? game.turn : (game.turn + 1) % game.players.length; // Ensure turn advances after valid play
+            console.log(`Turn advancing after play: ${game.turn} -> ${game.extraTurn ? game.turn : (game.turn + 1) % game.players.length}`);
+            game.turn = game.extraTurn ? game.turn : (game.turn + 1) % game.players.length;
             if (game.skipNext === game.turn) {
               game.moveHistory.unshift(`Player ${getPlayerLabel(game.turn)} skipped (Pair 6)`);
+              console.log(`Turn advancing due to skip: ${game.turn} -> ${(game.turn + 1) % game.players.length}`);
               game.turn = (game.turn + 1) % game.players.length;
               game.skipNext = null;
             }
@@ -755,6 +769,7 @@ function handler(req, res) {
             game.status = game.pairEffect && game.turn !== game.pairEffectOwner ? `Player ${getPlayerLabel(game.turn)}\'s turn! (${getActiveEffectName()})` : `Player ${getPlayerLabel(game.turn)}\'s turn!`;
           }
           if (game.moveHistory.length > 3) game.moveHistory.pop();
+          gameStates[sessionId] = game;
         } else {
           game.status = 'Invalid play!';
         }
@@ -762,7 +777,6 @@ function handler(req, res) {
     }
 
     res.status(200).json({ ...game, opponents: getOpponents(game.turn) });
-    gameStates[sessionId] = game;
   } catch (error) {
     console.error('Error in handler:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
