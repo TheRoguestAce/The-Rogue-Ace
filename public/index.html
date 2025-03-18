@@ -1,55 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Rogue Ace</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Game</title>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <h1>The Rogue Ace</h1>
-  <div id="gameInfo">
-    <p>Turn: <span id="turn">1</span></p>
-    <p>Discard: <span id="discard">None</span></p>
-    <p>Deck Size: <span id="deckSize">0</span></p>
-    <p>Wins: <span id="wins"></span></p>
-    <p id="status">Developer Mode: Pick your ruler or add cards!</p>
-  </div>
-  <div id="players"></div>
-  <div id="abilities" style="display: none;">
-    <h3>Abilities</h3>
-    <p id="abilityText"></p>
-  </div>
-  <div id="controls">
-    <input type="text" id="moveInput" placeholder="Enter move (e.g., 5H, 5H5D for pair)">
-    <button onclick="makeMove()">Play</button>
-    <button onclick="drawCard()">Draw</button>
-    <button onclick="resetGame()">Reset</button>
-    <input type="text" id="addCardInput" placeholder="Add card (e.g., 5D1)">
-    <button onclick="addCard()">Add Card</button>
-  </div>
-  <h3>Move History</h3>
-  <ul id="history"></ul>
-  <div id="pair5Choices" style="display: none;">
-    <p>Pair 5: Choose discard card</p>
-    <div id="pair5DiscardOptions"></div>
-    <div id="pair5HandOptions" style="display: none;">
-      <p>Choose hand card to swap</p>
-      <div id="pair5HandCards"></div>
+    <div id="game-container">
+        <h1>Card Game</h1>
+        <div id="status"></div>
+        <div id="discard">Discard: <span id="discard-card"></span></div>
+        <div id="player-a">
+            <h2>Player A</h2>
+            <p>Ruler: <span id="player-a-ruler"></span></p>
+            <div id="player-a-hand"></div>
+        </div>
+        <div id="player-b">
+            <h2>Player B</h2>
+            <p>Ruler: <span id="player-b-ruler"></span></p>
+            <div id="player-b-hand"></div>
+        </div>
+        <div id="controls">
+            <button id="play-btn">Play Selected</button>
+            <button id="draw-btn" style="display: none;">Draw</button>
+            <button id="reset-btn">Reset Game</button>
+            <input id="add-card-input" placeholder="e.g., 8DA (Player A), KSD (discard)">
+            <button id="add-card-btn">Add Card</button>
+        </div>
+        <div id="move-history">
+            <h3>Move History</h3>
+            <ul id="history-list"></ul>
+        </div>
     </div>
-  </div>
-  <div id="pair6Choices" style="display: none;">
-    <p>Pair 6: Choose target</p>
-    <div id="pair6TargetOptions"></div>
-  </div>
-  <div id="pair7Choices" style="display: none;">
-    <p>Pair 7: Choose deck card</p>
-    <div id="pair7DeckOptions"></div>
-    <div id="pair7HandOptions" style="display: none;">
-      <p>Choose hand card to swap</p>
-      <div id="pair7HandCards"></div>
-    </div>
-  </div>
-  <script src="script.js"></script>
+    <script src="/script.js"></script>
 </body>
 </html>
