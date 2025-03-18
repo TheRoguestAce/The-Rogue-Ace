@@ -67,10 +67,6 @@ input {
     margin: 5px 0;
 }
 
-#pair-5-options, #pair-7-options, #pair-6-options {
+#pair-5-options, #pair-7-options {
     margin: 10px 0;
-}
-
-#pair-5-swap, #pair-7-swap {
-    margin-top: 10px;
 }
