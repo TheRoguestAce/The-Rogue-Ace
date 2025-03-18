@@ -1,7 +1,10 @@
+// Add a sessionId at the top
+const sessionId = Date.now().toString() + Math.random().toString(36).substring(2, 8); // Unique session ID
 let selectedCards = [];
 let currentPhase = 'setup';
 let abilityDescription = '';
 let currentGameState = null;
+let lastActionTime = Date.now(); // Track the last action time to control fetches
 
 const rulerAbilities = {
   suits: {
@@ -47,9 +50,11 @@ const rulerAbilities = {
 
 async function fetchGameState() {
   try {
-    const response = await fetch('/api/game?players=2', { cache: 'no-store' });
+    // Include sessionId in the request
+    const response = await fetch(`/api/game?players=2&session=${sessionId}`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const game = await response.json();
+    console.log(`Fetched game state for session ${sessionId}: Phase=${game.phase}, Turn=${game.turn}`);
     currentPhase = game.phase;
     currentGameState = game;
     updateUI(game);
@@ -204,7 +209,6 @@ function selectCard(card, playerIndex) {
     } else {
       selectedCards.splice(index, 1);
     }
-    // Check for pair or ToaK and set ability description
     if (selectedCards.length === 2 && selectedCards.every(c => c.slice(0, -1) === selectedCards[0].slice(0, -1))) {
       const rank = selectedCards[0].slice(0, -1);
       abilityDescription = rulerAbilities.pairs[rank] || 'No pair ability';
@@ -233,68 +237,84 @@ async function makeMove() {
   const move = document.getElementById('moveInput').value;
   if (!move) return;
 
-  await fetch(`/api/game?move=${move}`, { method: 'POST' });
-  selectedCards = [];
-  abilityDescription = ''; // Reset ability description after move
-  document.getElementById('moveInput').value = '';
-  await fetchGameState(); // Refresh immediately after move
-}
-
-async function drawCard() {
-  await fetch('/api/game?move=draw', { method: 'POST' });
+  await fetch(`/api/game?move=${move}&session=${sessionId}`, { method: 'POST' });
   selectedCards = [];
   abilityDescription = '';
   document.getElementById('moveInput').value = '';
+  lastActionTime = Date.now(); // Update last action time
+  await fetchGameState();
+}
+
+async function drawCard() {
+  await fetch(`/api/game?move=draw&session=${sessionId}`, { method: 'POST' });
+  selectedCards = [];
+  abilityDescription = '';
+  document.getElementById('moveInput').value = '';
+  lastActionTime = Date.now();
   await fetchGameState();
 }
 
 async function resetGame() {
-  await fetch('/api/game?reset=true', { method: 'POST' });
+  await fetch(`/api/game?reset=true&session=${sessionId}`, { method: 'POST' });
   selectedCards = [];
   abilityDescription = '';
   document.getElementById('moveInput').value = '';
+  lastActionTime = Date.now();
   await fetchGameState();
 }
 
 async function addCard() {
   const cardCode = document.getElementById('addCardInput').value;
   if (cardCode) {
-    await fetch(`/api/game?addCards=${cardCode}`, { method: 'POST' });
+    await fetch(`/api/game?addCards=${cardCode}&session=${sessionId}`, { method: 'POST' });
     document.getElementById('addCardInput').value = '';
+    lastActionTime = Date.now();
     await fetchGameState();
   }
 }
 
 async function selectPair5DiscardChoice(card) {
-  await fetch(`/api/game?pair5DiscardChoice=${card}`, { method: 'POST' });
+  await fetch(`/api/game?pair5DiscardChoice=${card}&session=${sessionId}`, { method: 'POST' });
+  lastActionTime = Date.now();
   await fetchGameState();
 }
 
 async function selectPair5HandChoice(card) {
-  await fetch(`/api/game?pair5HandChoice=${card}`, { method: 'POST' });
+  await fetch(`/api/game?pair5HandChoice=${card}&session=${sessionId}`, { method: 'POST' });
+  lastActionTime = Date.now();
   await fetchGameState();
 }
 
 async function selectPair7DeckChoice(card) {
-  await fetch(`/api/game?pair7DeckChoice=${card}`, { method: 'POST' });
+  await fetch(`/api/game?pair7DeckChoice=${card}&session=${sessionId}`, { method: 'POST' });
+  lastActionTime = Date.now();
   await fetchGameState();
 }
 
 async function selectPair7HandChoice(card) {
-  await fetch(`/api/game?pair7HandChoice=${card}`, { method: 'POST' });
+  await fetch(`/api/game?pair7HandChoice=${card}&session=${sessionId}`, { method: 'POST' });
+  lastActionTime = Date.now();
   await fetchGameState();
 }
 
 async function selectPair6Target(target) {
-  await fetch(`/api/game?pair6Target=${target}`, { method: 'POST' });
+  await fetch(`/api/game?pair6Target=${target}&session=${sessionId}`, { method: 'POST' });
+  lastActionTime = Date.now();
   await fetchGameState();
 }
 
 async function fortChoice(choice) {
-  await fetch(`/api/game?fortChoice=${choice}`, { method: 'POST' });
+  await fetch(`/api/game?fortChoice=${choice}&session=${sessionId}`, { method: 'POST' });
+  lastActionTime = Date.now();
   await fetchGameState();
 }
 
-// Initial fetch and periodic refresh
+// Initial fetch and controlled periodic refresh
 fetchGameState();
-setInterval(fetchGameState, 2000);
+setInterval(() => {
+  // Only fetch if no recent action (within 5 seconds) to avoid overwriting state
+  if (Date.now() - lastActionTime > 5000) {
+    console.log(`Periodic fetch triggered for session ${sessionId}`);
+    fetchGameState();
+  }
+}, 5000); // Increased interval to 5 seconds
