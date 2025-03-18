@@ -1,178 +1,241 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const status = document.getElementById('status');
-    const discardCard = document.getElementById('discard-card');
-    const playerAHand = document.getElementById('player-a-hand');
-    const playerBHand = document.getElementById('player-b-hand');
-    const playerARuler = document.getElementById('player-a-ruler');
-    const playerBRuler = document.getElementById('player-b-ruler');
-    const playBtn = document.getElementById('play-btn');
-    const drawBtn = document.getElementById('draw-btn');
-    const resetBtn = document.getElementById('reset-btn');
-    const addCardInput = document.getElementById('add-card-input');
-    const addCardBtn = document.getElementById('add-card-btn');
-    const historyList = document.getElementById('history-list');
-    const pair5Options = document.getElementById('pair-5-options');
-    const pair7Options = document.getElementById('pair-7-options');
-    const discardPileTop = document.getElementById('discard-pile-top');
-    const deckTopTwo = document.getElementById('deck-top-two');
-    const confirmSwapBtn = document.getElementById('confirm-swap-btn');
+let selectedCards = [];
+let currentPhase = 'setup';
+let currentGameState = null;
 
-    let selectedCards = [];
-    let selectedDiscard = null;
-    let selectedDeck = null;
-    let selectedHandForSwap = null;
-    let sessionId = 'default';
+async function fetchGameState() {
+  try {
+    const response = await fetch('/api/game?players=2', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const game = await response.json();
+    currentPhase = game.phase;
+    currentGameState = game;
+    updateUI(game);
+  } catch (error) {
+    console.error('Error fetching game state:', error);
+    document.getElementById('status').textContent = `Error loading game: ${error.message}`;
+  }
+}
 
-    function fetchGameState() {
-        fetch(`/api/game?session=${sessionId}`)
-            .then(res => res.json())
-            .then(data => {
-                status.textContent = data.status;
-                discardCard.textContent = data.discard;
-                playerARuler.textContent = data.playerARuler;
-                playerBRuler.textContent = data.playerBRuler;
+function updateUI(game) {
+  document.getElementById('status').textContent = game.status;
+  document.getElementById('turn').textContent = String.fromCharCode(65 + game.turn);
+  document.getElementById('discard').textContent = game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None';
+  document.getElementById('deckSize').textContent = game.deck.length;
+  document.getElementById('wins').textContent = game.wins.map((w, i) => `${String.fromCharCode(65 + i)}: ${w}`).join(', ');
 
-                playerAHand.innerHTML = '';
-                data.playerAHand.forEach(card => {
-                    const cardEl = document.createElement('span');
-                    cardEl.textContent = `${card.rank}${card.suit[0]}`;
-                    cardEl.classList.add('card');
-                    cardEl.addEventListener('click', () => toggleCard(cardEl, `${card.rank}${card.suit[0]}`, 'hand'));
-                    playerAHand.appendChild(cardEl);
-                });
+  const playersDiv = document.getElementById('players');
+  playersDiv.innerHTML = '';
+  game.players.forEach((player, index) => {
+    const playerDiv = document.createElement('div');
+    playerDiv.innerHTML = `<strong>Player ${String.fromCharCode(65 + index)} Hand:</strong> ${
+      player.hand.length ? player.hand.map(c => `<span class="card" onclick="selectCard('${c.rank}${c.suit[0]}', ${index})">${c.rank}${c.suit[0]}</span>`).join(', ') : 'Empty'
+    }<br><strong>Ruler:</strong> ${player.ruler ? `${player.ruler.rank}${player.ruler.suit[0]}` : 'None'}`;
+    playersDiv.appendChild(playerDiv);
+  });
 
-                playerBHand.innerHTML = '';
-                data.playerBHand.forEach(card => {
-                    const cardEl = document.createElement('span');
-                    cardEl.textContent = `${card.rank}${card.suit[0]}`;
-                    cardEl.classList.add('card');
-                    cardEl.addEventListener('click', () => toggleCard(cardEl, `${card.rank}${card.suit[0]}`, 'hand'));
-                    playerBHand.appendChild(cardEl);
-                });
+  const historyUl = document.getElementById('history');
+  historyUl.innerHTML = '';
+  game.moveHistory.forEach(move => {
+    const li = document.createElement('li');
+    li.textContent = move;
+    historyUl.appendChild(li);
+  });
 
-                historyList.innerHTML = '';
-                data.moveHistory.forEach(move => {
-                    const li = document.createElement('li');
-                    li.textContent = move;
-                    historyList.appendChild(li);
-                });
-
-                drawBtn.style.display = data.phase === 'play' && !data.canPlay ? 'inline-block' : 'none';
-
-                pair5Options.style.display = data.pair5Pending && !data.pair5DiscardChoice ? 'block' : 'none';
-                pair7Options.style.display = data.pair7Pending && !data.pair7DeckChoice ? 'block' : 'none';
-                confirmSwapBtn.style.display = (data.pair5Pending && data.pair5DiscardChoice) || (data.pair7Pending && data.pair7DeckChoice) ? 'inline-block' : 'none';
-
-                if (data.pair5Pending && !data.pair5DiscardChoice) {
-                    discardPileTop.innerHTML = '';
-                    data.discardPileTop.forEach(card => {
-                        const cardEl = document.createElement('span');
-                        cardEl.textContent = card;
-                        cardEl.classList.add('card');
-                        cardEl.addEventListener('click', () => toggleCard(cardEl, card, 'discard'));
-                        discardPileTop.appendChild(cardEl);
-                    });
-                }
-
-                if (data.pair7Pending && !data.pair7DeckChoice) {
-                    deckTopTwo.innerHTML = '';
-                    data.deckTopTwo.forEach(card => {
-                        const cardEl = document.createElement('span');
-                        cardEl.textContent = card;
-                        cardEl.classList.add('card');
-                        cardEl.addEventListener('click', () => toggleCard(cardEl, card, 'deck'));
-                        deckTopTwo.appendChild(cardEl);
-                    });
-                }
-            })
-            .catch(err => console.error('Fetch error:', err));
+  const pair5Choices = document.getElementById('pair5Choices');
+  const pair5DiscardOptions = document.getElementById('pair5DiscardOptions');
+  const pair5HandOptions = document.getElementById('pair5HandOptions');
+  const pair5HandCards = document.getElementById('pair5HandCards');
+  if (game.pair5Pending && game.turn === 0) {
+    pair5Choices.style.display = 'block';
+    pair5DiscardOptions.innerHTML = '';
+    const topFive = [...new Map(game.discardPile.slice(-5).map(c => [`${c.rank}${c.suit[0]}`, c])).values()].reverse();
+    topFive.forEach(card => {
+      const span = document.createElement('span');
+      span.className = 'card';
+      span.textContent = `${card.rank}${card.suit[0]}`;
+      span.onclick = () => selectPair5DiscardChoice(`${card.rank}${card.suit[0]}`);
+      pair5DiscardOptions.appendChild(span);
+      pair5DiscardOptions.appendChild(document.createTextNode(', '));
+    });
+    if (game.pair5DiscardChoice) {
+      pair5HandOptions.style.display = 'block';
+      pair5HandCards.innerHTML = '';
+      game.players[0].hand.forEach(card => {
+        const span = document.createElement('span');
+        span.className = 'card';
+        span.textContent = `${card.rank}${card.suit[0]}`;
+        span.onclick = () => selectPair5HandChoice(`${card.rank}${card.suit[0]}`);
+        pair5HandCards.appendChild(span);
+        pair5HandCards.appendChild(document.createTextNode(', '));
+      });
+    } else {
+      pair5HandOptions.style.display = 'none';
     }
+  } else {
+    pair5Choices.style.display = 'none';
+  }
 
-    function toggleCard(cardEl, card, type) {
-        if (cardEl.classList.contains('selected')) {
-            cardEl.classList.remove('selected');
-            if (type === 'hand' && !selectedHandForSwap) selectedCards = selectedCards.filter(c => c !== card);
-            else if (type === 'discard') selectedDiscard = null;
-            else if (type === 'deck') selectedDeck = null;
-            else if (type === 'hand' && selectedHandForSwap === card) selectedHandForSwap = null;
-        } else {
-            document.querySelectorAll('.card.selected').forEach(el => {
-                if (el !== cardEl && (
-                    (type === 'discard' && el.parentElement.id === 'discard-pile-top') ||
-                    (type === 'deck' && el.parentElement.id === 'deck-top-two') ||
-                    (type === 'hand' && !selectedHandForSwap && el.parentElement.id.includes('hand')) ||
-                    (type === 'hand' && selectedHandForSwap && el.parentElement.id.includes('hand'))
-                )) el.classList.remove('selected');
-            });
-            cardEl.classList.add('selected');
-            if (type === 'hand' && !selectedDiscard && !selectedDeck) selectedCards.push(card);
-            else if (type === 'discard') selectedDiscard = card;
-            else if (type === 'deck') selectedDeck = card;
-            else if (type === 'hand' && (selectedDiscard || selectedDeck)) selectedHandForSwap = card;
-        }
+  const pair7Choices = document.getElementById('pair7Choices');
+  const pair7DeckOptions = document.getElementById('pair7DeckOptions');
+  const pair7HandOptions = document.getElementById('pair7HandOptions');
+  const pair7HandCards = document.getElementById('pair7HandCards');
+  if (game.pair7Pending && game.turn === 0) {
+    pair7Choices.style.display = 'block';
+    pair7DeckOptions.innerHTML = '';
+    const topTwo = game.deck.slice(0, 2);
+    topTwo.forEach(card => {
+      const span = document.createElement('span');
+      span.className = 'card';
+      span.textContent = `${card.rank}${card.suit[0]}`;
+      span.onclick = () => selectPair7DeckChoice(`${card.rank}${card.suit[0]}`);
+      pair7DeckOptions.appendChild(span);
+      pair7DeckOptions.appendChild(document.createTextNode(', '));
+    });
+    if (game.pair7DeckChoice) {
+      pair7HandOptions.style.display = 'block';
+      pair7HandCards.innerHTML = '';
+      game.players[0].hand.forEach(card => {
+        const span = document.createElement('span');
+        span.className = 'card';
+        span.textContent = `${card.rank}${card.suit[0]}`;
+        span.onclick = () => selectPair7HandChoice(`${card.rank}${card.suit[0]}`);
+        pair7HandCards.appendChild(span);
+        pair7HandCards.appendChild(document.createTextNode(', '));
+      });
+    } else {
+      pair7HandOptions.style.display = 'none';
     }
+  } else {
+    pair7Choices.style.display = 'none';
+  }
 
-    playBtn.addEventListener('click', () => {
-        if (selectedCards.length > 0) {
-            fetch(`/api/game?session=${sessionId}&move=${selectedCards.join(',')}`, { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    selectedCards = [];
-                    fetchGameState();
-                })
-                .catch(err => console.error('Play error:', err));
-        }
+  const pair6Choices = document.getElementById('pair6Choices');
+  const pair6TargetOptions = document.getElementById('pair6TargetOptions');
+  if (game.pair6Pending && game.turn === 0) {
+    pair6Choices.style.display = 'block';
+    pair6TargetOptions.innerHTML = '';
+    game.opponents.forEach(idx => {
+      const span = document.createElement('span');
+      span.className = 'card';
+      span.textContent = `Player ${String.fromCharCode(65 + idx)}`;
+      span.onclick = () => selectPair6Target(idx);
+      pair6TargetOptions.appendChild(span);
+      pair6TargetOptions.appendChild(document.createTextNode(', '));
     });
+  } else {
+    pair6Choices.style.display = 'none';
+  }
 
-    drawBtn.addEventListener('click', () => {
-        fetch(`/api/game?session=${sessionId}&move=draw`, { method: 'POST' })
-            .then(res => res.json())
-            .then(fetchGameState)
-            .catch(err => console.error('Draw error:', err));
-    });
+  const fortChoices = document.getElementById('fortChoices');
+  if (game.fortChoicePending && game.turn === 0) {
+    fortChoices.style.display = 'block';
+  } else {
+    fortChoices.style.display = 'none';
+  }
 
-    resetBtn.addEventListener('click', () => {
-        fetch(`/api/game?session=${sessionId}&reset=true`, { method: 'POST' })
-            .then(res => res.json())
-            .then(fetchGameState)
-            .catch(err => console.error('Reset error:', err));
-    });
+  document.querySelectorAll('.card').forEach(span => {
+    if (selectedCards.includes(span.textContent)) {
+      span.style.backgroundColor = '#ddd';
+    } else {
+      span.style.backgroundColor = '';
+    }
+  });
 
-    addCardBtn.addEventListener('click', () => {
-        const cardCode = addCardInput.value.trim();
-        if (cardCode) {
-            fetch(`/api/game?session=${sessionId}&addCards=${cardCode}`, { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    addCardInput.value = '';
-                    fetchGameState();
-                })
-                .catch(err => console.error('Add card error:', err));
-        }
-    });
+  document.getElementById('moveInput').value = selectedCards.join(',');
+}
 
-    confirmSwapBtn.addEventListener('click', () => {
-        if (selectedDiscard && selectedHandForSwap) {
-            fetch(`/api/game?session=${sessionId}&pair5DiscardChoice=${selectedDiscard}&pair5HandChoice=${selectedHandForSwap}`, { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    selectedDiscard = null;
-                    selectedHandForSwap = null;
-                    fetchGameState();
-                })
-                .catch(err => console.error('Pair 5 swap error:', err));
-        } else if (selectedDeck && selectedHandForSwap) {
-            fetch(`/api/game?session=${sessionId}&pair7DeckChoice=${selectedDeck}&pair7HandChoice=${selectedHandForSwap}`, { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    selectedDeck = null;
-                    selectedHandForSwap = null;
-                    fetchGameState();
-                })
-                .catch(err => console.error('Pair 7 swap error:', err));
-        }
-    });
+function selectCard(card, playerIndex) {
+  if (playerIndex !== 0) return; // Only Player A can interact
 
-    fetchGameState();
-    setInterval(fetchGameState, 5000);
-});
+  const index = selectedCards.indexOf(card);
+  if (index === -1) {
+    selectedCards.push(card);
+  } else {
+    selectedCards.splice(index, 1);
+  }
+
+  document.querySelectorAll('.card').forEach(span => {
+    if (selectedCards.includes(span.textContent)) {
+      span.style.backgroundColor = '#ddd';
+    } else {
+      span.style.backgroundColor = '';
+    }
+  });
+
+  document.getElementById('moveInput').value = selectedCards.join(',');
+}
+
+async function makeMove() {
+  const move = document.getElementById('moveInput').value;
+  if (!move) return;
+
+  await fetch(`/api/game?move=${move}`, { method: 'POST' });
+  selectedCards = [];
+  document.getElementById('moveInput').value = '';
+  await fetchGameState();
+}
+
+async function drawCard() {
+  await fetch('/api/game?move=draw', { method: 'POST' });
+  selectedCards = [];
+  document.getElementById('moveInput').value = '';
+  await fetchGameState();
+}
+
+async function resetGame() {
+  await fetch('/api/game?reset=true', { method: 'POST' });
+  selectedCards = [];
+  document.getElementById('moveInput').value = '';
+  await fetchGameState();
+}
+
+async function addCard() {
+  const cardCode = document.getElementById('addCardInput').value;
+  if (cardCode) {
+    await fetch(`/api/game?addCards=${cardCode}`, { method: 'POST' });
+    document.getElementById('addCardInput').value = '';
+    await fetchGameState();
+  }
+}
+
+async function addEnemyAbility() {
+  const ability = document.getElementById('enemyAbilityInput').value;
+  if (ability) {
+    await fetch(`/api/game?addEnemyAbility=${ability}`, { method: 'POST' });
+    document.getElementById('enemyAbilityInput').value = '';
+    await fetchGameState();
+  }
+}
+
+async function selectPair5DiscardChoice(card) {
+  await fetch(`/api/game?pair5DiscardChoice=${card}`, { method: 'POST' });
+  await fetchGameState();
+}
+
+async function selectPair5HandChoice(card) {
+  await fetch(`/api/game?pair5HandChoice=${card}`, { method: 'POST' });
+  await fetchGameState();
+}
+
+async function selectPair7DeckChoice(card) {
+  await fetch(`/api/game?pair7DeckChoice=${card}`, { method: 'POST' });
+  await fetchGameState();
+}
+
+async function selectPair7HandChoice(card) {
+  await fetch(`/api/game?pair7HandChoice=${card}`, { method: 'POST' });
+  await fetchGameState();
+}
+
+async function selectPair6Target(target) {
+  await fetch(`/api/game?pair6Target=${target}`, { method: 'POST' });
+  await fetchGameState();
+}
+
+async function fortChoice(choice) {
+  await fetch(`/api/game?fortChoice=${choice}`, { method: 'POST' });
+  await fetchGameState();
+}
+
+// Initial fetch
+fetchGameState();
