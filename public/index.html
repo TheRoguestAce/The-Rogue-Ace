@@ -9,7 +9,7 @@
 <body>
   <h1>The Rogue Ace</h1>
   <div id="gameInfo">
-    <p>Turn: <span id="turn">A</span></p>
+    <p>Turn: <span id="turn">1</span></p>
     <p>Discard: <span id="discard">None</span></p>
     <p>Deck Size: <span id="deckSize">0</span></p>
     <p>Wins: <span id="wins"></span></p>
@@ -21,10 +21,8 @@
     <button onclick="makeMove()">Play</button>
     <button onclick="drawCard()">Draw</button>
     <button onclick="resetGame()">Reset</button>
-    <input type="text" id="addCardInput" placeholder="Add card (e.g., 5DA)">
+    <input type="text" id="addCardInput" placeholder="Add card (e.g., 5D1)">
     <button onclick="addCard()">Add Card</button>
-    <input type="text" id="enemyAbilityInput" placeholder="Add enemy ability (e.g., FireBoost)">
-    <button onclick="addEnemyAbility()">Add Enemy Ability</button>
   </div>
   <h3>Move History</h3>
   <ul id="history"></ul>
@@ -36,6 +34,10 @@
       <div id="pair5HandCards"></div>
     </div>
   </div>
+  <div id="pair6Choices" style="display: none;">
+    <p>Pair 6: Choose target</p>
+    <div id="pair6TargetOptions"></div>
+  </div>
   <div id="pair7Choices" style="display: none;">
     <p>Pair 7: Choose deck card</p>
     <div id="pair7DeckOptions"></div>
@@ -43,13 +45,6 @@
       <p>Choose hand card to swap</p>
       <div id="pair7HandCards"></div>
     </div>
-  </div>
-  <div id="pair6Choices" style="display: none;">
-    <p>Pair 6: Choose target</p>
-    <div id="pair6TargetOptions"></div>
-  </div>
-  <div id="fortChoices" style="display: none;">
-    <p>Fort Choice: <button onclick="fortChoice('continue')">Continue</button> <button onclick="fortChoice('destroy')">Destroy</button></p>
   </div>
   <script src="script.js"></script>
 </body>
