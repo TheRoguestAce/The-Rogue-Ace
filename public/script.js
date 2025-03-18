@@ -18,16 +18,16 @@ async function fetchGameState() {
 
 function updateUI(game) {
   document.getElementById('status').textContent = game.status;
-  document.getElementById('turn').textContent = String.fromCharCode(65 + game.turn);
+  document.getElementById('turn').textContent = game.turn + 1;
   document.getElementById('discard').textContent = game.discard ? `${game.discard.rank}${game.discard.suit[0]}` : 'None';
   document.getElementById('deckSize').textContent = game.deck.length;
-  document.getElementById('wins').textContent = game.wins.map((w, i) => `${String.fromCharCode(65 + i)}: ${w}`).join(', ');
+  document.getElementById('wins').textContent = game.wins.map((w, i) => `Player ${i + 1}: ${w}`).join(', ');
 
   const playersDiv = document.getElementById('players');
   playersDiv.innerHTML = '';
   game.players.forEach((player, index) => {
     const playerDiv = document.createElement('div');
-    playerDiv.innerHTML = `<strong>Player ${String.fromCharCode(65 + index)} Hand:</strong> ${
+    playerDiv.innerHTML = `<strong>Player ${index + 1} Hand:</strong> ${
       player.hand.length ? player.hand.map(c => `<span class="card" onclick="selectCard('${c.rank}${c.suit[0]}', ${index})">${c.rank}${c.suit[0]}</span>`).join(', ') : 'Empty'
     }<br><strong>Ruler:</strong> ${player.ruler ? `${player.ruler.rank}${player.ruler.suit[0]}` : 'None'}`;
     playersDiv.appendChild(playerDiv);
@@ -45,7 +45,7 @@ function updateUI(game) {
   const pair5DiscardOptions = document.getElementById('pair5DiscardOptions');
   const pair5HandOptions = document.getElementById('pair5HandOptions');
   const pair5HandCards = document.getElementById('pair5HandCards');
-  if (game.pair5Pending && game.turn === 0) {
+  if (game.pair5Pending && game.turn === 0) { // Only Player 1 interacts
     pair5Choices.style.display = 'block';
     pair5DiscardOptions.innerHTML = '';
     const topFive = [...new Map(game.discardPile.slice(-5).map(c => [`${c.rank}${c.suit[0]}`, c])).values()].reverse();
@@ -75,11 +75,28 @@ function updateUI(game) {
     pair5Choices.style.display = 'none';
   }
 
+  const pair6Choices = document.getElementById('pair6Choices');
+  const pair6TargetOptions = document.getElementById('pair6TargetOptions');
+  if (game.pair6Pending && game.turn === 0) { // Only Player 1 interacts
+    pair6Choices.style.display = 'block';
+    pair6TargetOptions.innerHTML = '';
+    game.opponents.forEach(idx => {
+      const span = document.createElement('span');
+      span.className = 'card';
+      span.textContent = `Player ${idx + 1}`;
+      span.onclick = () => selectPair6Target(idx);
+      pair6TargetOptions.appendChild(span);
+      pair6TargetOptions.appendChild(document.createTextNode(', '));
+    });
+  } else {
+    pair6Choices.style.display = 'none';
+  }
+
   const pair7Choices = document.getElementById('pair7Choices');
   const pair7DeckOptions = document.getElementById('pair7DeckOptions');
   const pair7HandOptions = document.getElementById('pair7HandOptions');
   const pair7HandCards = document.getElementById('pair7HandCards');
-  if (game.pair7Pending && game.turn === 0) {
+  if (game.pair7Pending && game.turn === 0) { // Only Player 1 interacts
     pair7Choices.style.display = 'block';
     pair7DeckOptions.innerHTML = '';
     const topTwo = game.deck.slice(0, 2);
@@ -109,30 +126,6 @@ function updateUI(game) {
     pair7Choices.style.display = 'none';
   }
 
-  const pair6Choices = document.getElementById('pair6Choices');
-  const pair6TargetOptions = document.getElementById('pair6TargetOptions');
-  if (game.pair6Pending && game.turn === 0) {
-    pair6Choices.style.display = 'block';
-    pair6TargetOptions.innerHTML = '';
-    game.opponents.forEach(idx => {
-      const span = document.createElement('span');
-      span.className = 'card';
-      span.textContent = `Player ${String.fromCharCode(65 + idx)}`;
-      span.onclick = () => selectPair6Target(idx);
-      pair6TargetOptions.appendChild(span);
-      pair6TargetOptions.appendChild(document.createTextNode(', '));
-    });
-  } else {
-    pair6Choices.style.display = 'none';
-  }
-
-  const fortChoices = document.getElementById('fortChoices');
-  if (game.fortChoicePending && game.turn === 0) {
-    fortChoices.style.display = 'block';
-  } else {
-    fortChoices.style.display = 'none';
-  }
-
   document.querySelectorAll('.card').forEach(span => {
     if (selectedCards.includes(span.textContent)) {
       span.style.backgroundColor = '#ddd';
@@ -145,7 +138,7 @@ function updateUI(game) {
 }
 
 function selectCard(card, playerIndex) {
-  if (playerIndex !== 0) return; // Only Player A can interact
+  if (playerIndex !== 0) return; // Only Player 1 can interact
 
   const index = selectedCards.indexOf(card);
   if (index === -1) {
@@ -198,15 +191,6 @@ async function addCard() {
   }
 }
 
-async function addEnemyAbility() {
-  const ability = document.getElementById('enemyAbilityInput').value;
-  if (ability) {
-    await fetch(`/api/game?addEnemyAbility=${ability}`, { method: 'POST' });
-    document.getElementById('enemyAbilityInput').value = '';
-    await fetchGameState();
-  }
-}
-
 async function selectPair5DiscardChoice(card) {
   await fetch(`/api/game?pair5DiscardChoice=${card}`, { method: 'POST' });
   await fetchGameState();
@@ -217,6 +201,11 @@ async function selectPair5HandChoice(card) {
   await fetchGameState();
 }
 
+async function selectPair6Target(target) {
+  await fetch(`/api/game?pair6Target=${target}`, { method: 'POST' });
+  await fetchGameState();
+}
+
 async function selectPair7DeckChoice(card) {
   await fetch(`/api/game?pair7DeckChoice=${card}`, { method: 'POST' });
   await fetchGameState();
@@ -224,16 +213,6 @@ async function selectPair7DeckChoice(card) {
 
 async function selectPair7HandChoice(card) {
   await fetch(`/api/game?pair7HandChoice=${card}`, { method: 'POST' });
-  await fetchGameState();
-}
-
-async function selectPair6Target(target) {
-  await fetch(`/api/game?pair6Target=${target}`, { method: 'POST' });
-  await fetchGameState();
-}
-
-async function fortChoice(choice) {
-  await fetch(`/api/game?fortChoice=${choice}`, { method: 'POST' });
   await fetchGameState();
 }
 
