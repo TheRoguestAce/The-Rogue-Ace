@@ -11,39 +11,46 @@ function handler(req, res) {
     const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
     const deck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
 
-    let game = gameStates[sessionId] || {
-      deck: shuffle([...deck]),
-      discard: null,
-      discardPile: [],
-      players: Array(playerCount).fill().map(() => ({ hand: [], ruler: null })),
-      turn: 0,
-      phase: 'setup',
-      status: 'Developer Mode: Pick your ruler or add cards!',
-      moveHistory: [],
-      lastPlayCount: 1,
-      lastPlayType: 'single',
-      canPlay: true,
-      pairEffect: null,
-      pairEffectOwner: null,
-      fortActive: false,
-      fortCard: null,
-      fortRank: null,
-      fortOwner: null,
-      extraTurn: false,
-      skipNext: null,
-      wins: Array(playerCount).fill(0),
-      fortChoicePending: false,
-      fortChoicePlayer: null,
-      pair5Pending: false,
-      pair5DiscardChoice: null,
-      pair5HandChoice: null,
-      pair7Pending: false,
-      pair7DeckChoice: null,
-      pair7HandChoice: null,
-      pair6Pending: false,
-      resetTriggered: false,
-      kingAlternation: null
-    };
+    let game = gameStates[sessionId];
+    if (!game) {
+      console.log(`Creating new game state for session ${sessionId}`);
+      game = {
+        deck: shuffle([...deck]),
+        discard: null,
+        discardPile: [],
+        players: Array(playerCount).fill().map(() => ({ hand: [], ruler: null })),
+        turn: 0,
+        phase: 'setup',
+        status: 'Developer Mode: Pick your ruler or add cards!',
+        moveHistory: [],
+        lastPlayCount: 1,
+        lastPlayType: 'single',
+        canPlay: true,
+        pairEffect: null,
+        pairEffectOwner: null,
+        fortActive: false,
+        fortCard: null,
+        fortRank: null,
+        fortOwner: null,
+        extraTurn: false,
+        skipNext: null,
+        wins: Array(playerCount).fill(0),
+        fortChoicePending: false,
+        fortChoicePlayer: null,
+        pair5Pending: false,
+        pair5DiscardChoice: null,
+        pair5HandChoice: null,
+        pair7Pending: false,
+        pair7DeckChoice: null,
+        pair7HandChoice: null,
+        pair6Pending: false,
+        resetTriggered: false,
+        kingAlternation: null
+      };
+      gameStates[sessionId] = game;
+    } else {
+      console.log(`Using existing game state for session ${sessionId}: Phase=${game.phase}, Turn=${game.turn}`);
+    }
 
     function shuffle(array) {
       for (let i = array.length - 1; i > 0; i--) {
@@ -395,6 +402,7 @@ function handler(req, res) {
     if (method === 'POST') {
       const { move, reset, addCards, fortChoice, pair5DiscardChoice, pair5HandChoice, pair7DeckChoice, pair7HandChoice, pair6Target } = query;
       if (reset === 'true') {
+        console.log(`Resetting game state for session ${sessionId}`);
         game = {
           deck: shuffle([...deck]),
           discard: null,
@@ -428,6 +436,7 @@ function handler(req, res) {
           resetTriggered: false,
           kingAlternation: null
         };
+        gameStates[sessionId] = game;
       } else if (addCards) {
         const match = addCards.match(/^([A2-9JQK]|10)([DHSC])([A-Z])$/i);
         if (!match) {
