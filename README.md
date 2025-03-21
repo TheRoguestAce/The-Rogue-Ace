@@ -2,36 +2,36 @@
 
 It’s like Uno but... 
 
-Everyone draws 8 cards. If you start with two aces, keep one of them and throw the other one in the deck, draw a card and shuffle the deck until you have only one ace. The goal is to run out of cards. After drawing cards they pick a ruler and show that card face-up. The ruler has two abilities, suit abilities and card abilities, unless it is an ace or joker. Whenever I say “you cannot make a pair with this”, I mean you cannot use the ability to make a pair, three of a kind or four of a kind.  
+Everyone draws 8 cards. After drawing cards they pick a ruler and show that card face-up. The ruler has two abilities, suit abilities and card abilities, unless it is an ace. Whenever I say “you cannot make a pair with this”, I mean you cannot use the ability to make a pair, three of a kind or four of a kind.  
 
 ### Suit Abilities:
 
 - **Diamonds (Diamond Storm):** If you can play a diamond card, you can add another card to play with it. This does not count as a pair.  
-- **Hearts (Campfire):** Every other card also count as the number on the heart card which is the ruler. Subsequent cards can also follow that number. You cannot make pairs with this ability.  
-- **Spades (Sliced):** All spades you play can also count as the number that is half of it, rounding up. (face cards count as 10 and are sliced to 5). You can make pairs with this.  
-- **Clubs (Strike):** You can play two cards at once if you have 5 or more cards and they both are playable cards. This counts as a pair.  
+- **Hearts (Campfire):** Every other card ALSO count as the number on the heart card which is the ruler. You cannot make pairs with this ability. 
+- **Spades (Sliced):** All spades also count as the number that is half of it, rounding up, minus one. (face cards count as 10 and are sliced to 5 - 1 = 4). You can make pairs with this.  
+- **Clubs (Strike):** You can play two cards at once if you have 5 or more cards before playing the two cards, and they both are valid, playable cards. This counts as a pair.  
 
 ### Card Abilities:
 
-- **2 (Twice the Might):** Two of a kind has double the effect.  
-- **3 (Lucky Clover):** You can play a 7 whenever you want, and everyone else has to draw 2 cards.  
+- **2 (Twice the Might):** Two of a kind makes you draw 2 extra cards, on top of any other modifiers.
+- **3 (Lucky Clover):** You can play a 7 WHENEVER you want, and everyone else has to draw 2 cards when you play it.  
 - **4 (Fourfold):** When you play a four of a kind, everyone puts all of their cards in the deck and shuffles them. Everyone else then draws 7 new cards while you draw 3.  
 - **5 (High Five):** All face cards also count as fives. You CAN make a pair with this.  
 - **6 (Nightmare):** Playing a six causes all other players to draw until they have 7 cards (or do nothing if they have more).  
 - **7 (Lucky Spin):** You can play a 3 whenever you want, and everyone else has to draw 2 cards.  
-- **8 (Seeing Red):** Whenever someone has 3 or less cards, anyone playing an eight makes that player draw 2 cards.  
+- **8 (Seeing Red):** Whenever someone has 3 or less cards, any player playing an eight makes the player with 3 or less cards draw 2 cards.  
 - **9 (Reverse Nightmare):** Anyone playing a nine causes you to put cards back in the deck until you have 5 cards (or do nothing if you have less).  
-- **10 (Perfection):** You can play an even numbered card (including queen) on top of another even numbered card. You cannot make a pair with this.  
-- **J (Servant):** All cards above Jack including Ace can also count as the other cards in that section. (e.g. King also counts as Queen and Ace when playing). You can make a pair with this.  
+- **10 (Perfection):** You can play an even numbered card (including queen) on top of another even numbered card. You cannot make a pair with this. You can only play two even cards on top of each other at a time, and at least one of the cards has to be a valid, playable card.
+- **J (Servant):** All cards ABOVE Jack including Ace can also count as the other cards in that section. (e.g. King also counts as Queen and Ace when playing). You can make a pair with this.  
 - **Q (Ruler’s Touch):** Kings count as every other number and suit, and when played force everyone else to draw a card. You can make a pair with this.  
-- **K (Ruler of Rulers):** Take the abilities of every other ruler’s card ability, but when you win you draw 5 cards and have to win again.  
+- **K (Ruler of Rulers):** Take the abilities of every other ruler’s CARD ability, but when you win you draw 5 cards and have to win again. If there are two or more Kings as rulers, they both fight each other, causing the King rulers to have no abilities.
 
 ### Ace Abilities:
 
-- **Ace of Diamonds (The Perfect Card):** All odd numbered non-face card cards can be played at any time. Same rules as Perfection. You cannot make a pair with this.  
-- **Ace of Hearts (Otherworldly Touch):** All hearts count as every other number and suit. All other suits can also count as this card, but do not get to count as every other number and suit. You cannot make a pair with this.  
-- **Ace of Spades (Pocket Knife):** All cards also count as the card that is half their value, rounded down. (face cards count as 10 and are sliced to 5). You can make a pair with this.  
-- **Ace of Clubs (Nuclear Bomb):** The first time someone wins, put all the cards back in the deck, shuffle it and give everyone except for that person 7 cards, and give that person 5 cards. If you win first, this does not take effect.  
+- **Ace of Diamonds (The Perfect Card):** Any amount of odd numbered non-face card cards can be played at any time (including Jack and King). You cannot make a pair with this.  
+- **Ace of Hearts (Otherworldly Touch):** All hearts count as every other number and suit. All other suits can also count as the Ace of Hearts, but do not get to count as every other number and suit. You cannot make a pair with this.
+- **Ace of Spades (Pocket Knife):** All cards also count as the card that is half their value, rounded up, minus one. (face cards count as 10 and are sliced to 5 - 1 = 4). You can make a pair with this.  
+- **Ace of Clubs (Nuclear Bomb):** The first time someone wins, put all the cards back in the deck, shuffle it and give everyone except for that person 7 cards, and give that person 5 cards. If the player that won has an Ace of Clubs as ruler, this does not happen. This ability only works once.
 
 ### Gameplay:
 After picking rulers, pick who is going first and drop the first card in the deck face up, just like Uno. To play a card, it must be either the same color (red or black), same number or a different number that is also even/odd (depending on the number).* After picking who goes first, also pick if you are going clockwise or counterclockwise. In a typical game, it rotates clockwise. Jack and King are odd, Queen is even.  
@@ -98,9 +98,4 @@ Same rule as tiny straight, but everyone has to play a face card. Everyone else 
 
 ### Tiny Flush or Royal Flush:
 Everyone else draws 7 cards, but these flushes have to be 5 cards long or else they don’t count as tiny or royal flushes.
- 
 
----
-
-### Game elements:
-Play on floors like [pokerogue.net](http://pokerogue.net), but after you fight you can take their abilities (each enemy has a unique ability that makes them better) and then use them the next time you play. It’s called **“The Rogue Ace.”** No complaints.
