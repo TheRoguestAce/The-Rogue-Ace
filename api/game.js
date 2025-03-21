@@ -109,7 +109,6 @@ async function handler(req, res) {
     const isPair = cards.length === 2 && cards[0].rank === cards[1].rank;
     const isToaK = cards.length === 3 && cards.every(c => c.rank === cards[0].rank);
     const topValue = top ? rankValue(top.rank) : 0;
-    const isRedSuit = s => ['Diamonds', 'Hearts'].includes(s);
   
     // Step 1: Check fort restrictions (non-owners can only play pairs or better)
     if (game.fortActive && game.turn !== game.fortOwner) {
@@ -154,59 +153,77 @@ async function handler(req, res) {
     // Step 4: Handle single card plays (must match top card)
     if (cards.length === 1) {
       const card = cards[0];
-      const value = rankValue(card.rank);
+      let effectiveRank = card.rank;
+      let effectiveSuit = card.suit;
+      let effectiveValue = rankValue(card.rank);
       let matches = false;
   
-      // Base matching: Same rank, same color, or same even/odd
-      if (top) {
-        matches = isRedSuit(card.suit) === isRedSuit(top.suit) || card.rank === top.rank || (value % 2 === topValue % 2);
-      }
-  
-      // Ruler Abilities (only apply if there's a top card to match against)
+      // Apply Ruler Abilities to modify the card's effective rank, suit, or value
       if (top) {
         // A of Diamonds: Odd non-face cards (A,3,5,7,9) playable anytime
-        if (rulerRank === 'A' && rulerSuit === 'Diamonds' && !['J', 'Q', 'K'].includes(card.rank) && value % 2 !== 0) {
-          matches = true;
+        if (rulerRank === 'A' && rulerSuit === 'Diamonds' && !['J', 'Q', 'K'].includes(card.rank) && effectiveValue % 2 !== 0) {
+          return true; // Bypasses normal matching
         }
         // A of Hearts: Hearts are wild (count as every rank)
         if (rulerRank === 'A' && rulerSuit === 'Hearts' && card.suit === 'Hearts') {
-          matches = true;
+          return true; // Wild card, matches any top card
         }
         // A of Spades: All cards count as both their rank and half rank rounded down
         if (rulerRank === 'A' && rulerSuit === 'Spades') {
-          matches = matches || Math.floor(value / 2) === topValue;
+          const halfValue = Math.floor(effectiveValue / 2);
+          // Check both the original and half value in base matching
+          effectiveValue = [effectiveValue, halfValue]; // Store both values to check
         }
         // A of Clubs: All cards count as half rank rounded down
         if (rulerRank === 'A' && rulerSuit === 'Clubs') {
-          matches = Math.floor(value / 2) === topValue;
+          effectiveValue = Math.floor(effectiveValue / 2);
+          effectiveRank = effectiveValue.toString(); // Update rank for matching
         }
         // Ruler 5: Face cards (J,Q,K) count as 5
         if (rulerRank === '5' && ['J', 'Q', 'K'].includes(card.rank)) {
-          matches = topValue === 5;
+          effectiveValue = 5;
+          effectiveRank = '5';
         }
-        // Ruler 10: Even cards match even cards
-        if (rulerRank === '10' && isEven(card.rank) && isEven(top.rank)) {
-          matches = true;
-        }
+        // Ruler 10: Even cards match even cards (handled in base matching)
         // Ruler J: J/Q/K/A count as each other
         if (rulerRank === 'J' && ['J', 'Q', 'K', 'A'].includes(card.rank)) {
-          matches = ['J', 'Q', 'K', 'A'].includes(top.rank);
+          effectiveRank = ['J', 'Q', 'K', 'A']; // Can match any of these ranks
         }
         // Ruler Q: Kings are wild (count as every rank)
         if (rulerRank === 'Q' && card.rank === 'K') {
-          matches = true;
+          return true; // Wild card, matches any top card
         }
         // Suit Hearts: Cards count as both their rank and the ruler's rank
         if (rulerSuit === 'Hearts' && rulerRank !== 'A') {
           const rulerValue = rankValue(rulerRank);
-          matches = matches || rulerValue === topValue || (rulerValue % 2 === topValue % 2);
+          effectiveValue = [effectiveValue, rulerValue]; // Can match either value
+          effectiveRank = [effectiveRank, rulerRank];
         }
         // Suit Spades: Spades count as both their rank and rank ÷ 2 rounded up - 1
         if (rulerSuit === 'Spades' && rulerRank !== 'A' && card.suit === 'Spades') {
-          const slicedValue = Math.ceil(value / 2) - 1;
-          matches = matches || slicedValue === topValue || (slicedValue % 2 === topValue % 2);
+          const slicedValue = Math.ceil(effectiveValue / 2) - 1;
+          effectiveValue = [effectiveValue, slicedValue];
+          effectiveRank = [effectiveRank, slicedValue.toString()];
         }
         // Suit Clubs: Play a pair if 5+ cards in hand (handled in pair logic)
+      }
+  
+      // Base Matching: Same rank, same suit, or same even/odd (after ruler abilities)
+      if (top) {
+        const topEffectiveValue = rankValue(top.rank);
+  
+        // Handle cases where effectiveRank or effectiveValue is an array (multiple possible values)
+        const ranksToCheck = Array.isArray(effectiveRank) ? effectiveRank : [effectiveRank];
+        const valuesToCheck = Array.isArray(effectiveValue) ? effectiveValue : [effectiveValue];
+  
+        // Check rank match
+        const rankMatches = ranksToCheck.some(r => r === top.rank);
+        // Check suit match
+        const suitMatches = effectiveSuit === top.suit;
+        // Check even/odd match
+        const evenOddMatches = valuesToCheck.some(v => (v % 2) === (topEffectiveValue % 2));
+  
+        matches = rankMatches || suitMatches || evenOddMatches;
       }
   
       return matches;
