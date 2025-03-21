@@ -33,9 +33,9 @@ const rulerAbilities = {
     2: 'Pair Pair: Opponent draws 3 cards instead of 2',
     3: 'Feeling Off: Until you play again, opponent must play odd numbers',
     4: 'Half the Cards: Until you play again, opponent cannot play 8 or above',
-    5: 'Medium Rare: Take a card from discard and swap with one of yours',
-    6: 'Devilish Stare: Choose an opponent to skip their turn',
-    7: 'Double Luck: Look at top deck card, swap with one of yours, reshuffle',
+    5: 'Medium Rare: Take a 5 from discard, pick a card from deck, reshuffle, set 5 as discard',
+    6: 'Devilish Stare: Opponent draws 1 next turn',
+    7: 'Double Luck: Look at top 2 cards, replace one of yours, reshuffle',
     8: 'Good Fortune: Play again and set discard',
     9: 'Fort: Only pairs or better can play until destroyed or your next turn; draw 1 if no pair',
     10: 'Feeling Right: Until you play again, opponent must play even numbers',
@@ -91,17 +91,6 @@ function updateDisplay(data) {
   if (data.pairEffect) document.getElementById('status').textContent += ` (Pair ${data.pairEffect} active)`;
   if (data.fortActive) document.getElementById('status').textContent += ` (Fort active${data.fortRank ? ` - ${data.fortRank}` : ''})`;
 
-  if (data.pair5Pending && data.turn === 'A') {
-    document.getElementById('status').textContent += ' Select card to swap with discard';
-    playerAHandElement.innerHTML += ' <span onclick="playSelected(\'swap\')">Swap</span>';
-  } else if (data.pair6Pending && data.turn === 'A') {
-    document.getElementById('status').textContent += ' Select opponent to skip';
-    playerAHandElement.innerHTML += ' <span onclick="playSelected(\'skip\')">Skip</span>';
-  } else if (data.pair7Pending && data.turn === 'A') {
-    document.getElementById('status').textContent += ' Select card to swap with deck';
-    playerAHandElement.innerHTML += ' <span onclick="playSelected(\'swap\')">Swap</span>';
-  }
-
   if (data.phase === 'setup' && selectedCards.length === 1) {
     showRulerAbilities(data.turn === 'A' ? 'playerA' : 'playerB', selectedCards[0]);
   } else if (data.phase === 'play' && selectedCards.length >= 2) {
@@ -151,24 +140,12 @@ function showRulerAbilities(player, selectedCard = null) {
     `${player === 'playerA' ? 'Player A' : 'Player B'} Ruler - ${suitAbility}Rank: ${rulerAbilities.ranks[abilityKey]}`;
 }
 
-function playSelected(action = '') {
-  if (selectedCards.length === 0 && !action) return;
-  if (data.pair5Pending && action === 'swap' && data.turn === 'A') {
-    fetchGame(`?pair5Choice=${selectedCards[0]}`);
-  } else if (data.pair6Pending && action === 'skip' && data.turn === 'A') {
-    fetchGame(`?pair6Target=1`); // Only supports skipping Player B for now
-  } else if (data.pair7Pending && action === 'swap' && data.turn === 'A') {
-    fetchGame(`?pair7Choice=${selectedCards[0]}`);
-  } else if (data.fortRank === '9' && action === 'break') {
-    fetchGame('break');
-  } else if (data.fortRank === '9' && action === 'maintain') {
-    fetchGame('maintain');
-  } else {
-    const move = selectedCards.join(',');
-    selectedCards = [];
-    document.getElementById('ruler-abilities').style.display = 'none';
-    fetchGame(move);
-  }
+function playSelected() {
+  if (selectedCards.length === 0) return;
+  const move = selectedCards.join(',');
+  selectedCards = [];
+  document.getElementById('ruler-abilities').style.display = 'none';
+  fetchGame(move);
 }
 
 function drawCards() {
