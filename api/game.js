@@ -336,59 +336,42 @@ async function handler(req, res) {
         playerCount: game.playerCount
       };
     } else if (addCards) {
-      const match = addCards.match(/^(\d)([A2-9JQK]|10)([DHSC])([A-Z])$/i);
+      const match = addCards.match(/^([A2-9JQK]|10)([DHSC])([A-Z])$/i);
       if (!match) {
-        game.status = 'Invalid card code! Use e.g., "18DA" (1 8D to A) or "1KSD" (1 KS to discard)';
+        game.status = 'Invalid card code! Use e.g., "ACA" (Ace of Clubs to A) or "8SD" (8 of Spades to discard)';
       } else {
-        const [_, amountStr, rank, suitChar, targetChar] = match;
-        const amount = parseInt(amountStr);
+        const [_, rank, suitChar, targetChar] = match;
         const suit = suits.find(s => s[0].toUpperCase() === suitChar.toUpperCase());
         const validRank = rank === '10' ? '10' : ranks.find(r => r.toUpperCase() === rank.toUpperCase());
         const targetIdx = targetChar.charCodeAt(0) - 65;
 
-        if (!validRank || !suit || amount < 1 || amount > 9 || targetIdx < 0 || targetIdx >= game.playerCount) {
-          game.status = 'Invalid rank, suit, amount, or player target!';
+        if (!validRank || !suit || (targetChar.toUpperCase() !== 'D' && (targetIdx < 0 || targetIdx >= game.playerCount))) {
+          game.status = 'Invalid rank, suit, or player target!';
         } else {
           const card = { rank: validRank, suit };
           if (targetChar.toUpperCase() === 'D') {
-            if (amount > 1) {
-              game.status = 'Only 1 card can be set to discard!';
+            const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+            if (deckIdx !== -1) {
+              game.discard = game.deck.splice(deckIdx, 1)[0];
             } else {
-              const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
-              if (deckIdx !== -1) {
-                game.discard = game.deck.splice(deckIdx, 1)[0];
-              } else {
-                game.discard = { rank: validRank, suit };
-              }
-              game.moveHistory.unshift(`Set ${card.rank}${suit[0]} as discard`);
-              if (game.moveHistory.length > 3) game.moveHistory.pop();
-              game.status = `Player ${game.turn === 0 ? 'A' : String.fromCharCode(65 + game.turn)}'s turn: Set discard!`;
+              game.discard = { rank: validRank, suit };
             }
-          } else {
-            let added = 0;
-            for (let i = 0; i < amount; i++) {
-              const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
-              if (deckIdx !== -1) {
-                game.players[targetIdx].hand.push(game.deck.splice(deckIdx, 1)[0]);
-                added++;
-              } else {
-                game.players[targetIdx].hand.push({ rank: validRank, suit });
-                added++;
-              }
-            }
-            game.moveHistory.unshift(`Added ${added} ${card.rank}${suit[0]} to Player ${String.fromCharCode(65 + targetIdx)}`);
+            game.moveHistory.unshift(`Set ${card.rank}${suit[0]} as discard`);
             if (game.moveHistory.length > 3) game.moveHistory.pop();
-            game.status = `Player ${game.turn === 0 ? 'A' : String.fromCharCode(65 + game.turn)}'s turn: Added ${added} card(s)!`;
+            game.status = `Player ${game.turn === 0 ? 'A' : String.fromCharCode(65 + game.turn)}'s turn: Set discard!`;
+          } else {
+            const deckIdx = game.deck.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+            if (deckIdx !== -1) {
+              game.players[targetIdx].hand.push(game.deck.splice(deckIdx, 1)[0]);
+            } else {
+              game.players[targetIdx].hand.push({ rank: validRank, suit });
+            }
+            game.moveHistory.unshift(`Added 1 ${card.rank}${suit[0]} to Player ${String.fromCharCode(65 + targetIdx)}`);
+            if (game.moveHistory.length > 3) game.moveHistory.pop();
+            game.status = `Player ${game.turn === 0 ? 'A' : String.fromCharCode(65 + game.turn)}'s turn: Added 1 card!`;
           }
         }
       }
-    } else if (move === 'draw') {
-      const drawCount = game.fortActive && game.turn !== game.fortOwner ? 2 : (game.fortActive ? 1 : 2);
-      const actualDraw = Math.min(drawCount, game.deck.length);
-      game.players[game.turn].hand.push(...game.deck.splice(0, actualDraw));
-      game.moveHistory.unshift(`Player ${String.fromCharCode(65 + game.turn)} drew ${actualDraw}${game.fortActive && game.turn !== game.fortOwner ? ' (fort)' : ''}`);
-      game.turn = (game.turn + 1) % game.playerCount;
-      game.status = `Player ${String.fromCharCode(65 + game.turn)}'s turn!`;
     } else if (pair5Choice && game.pair5Pending && game.turn === game.pairEffectOwner) {
       const cardMatch = pair5Choice.match(/^([A2-9JQK]|10)([DHSC])$/i);
       if (cardMatch) {
