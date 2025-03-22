@@ -39,7 +39,8 @@ async function handler(req, res) {
       pair6Target: null,
       pair7Pending: false,
       pair7Choice: null,
-      playerCount: 2 // Default to 2, adjustable via query
+      playerCount: 2,
+      aceOfClubsTriggered: false // Track if Ace of Clubs has been used
     };
     gameStates[sessionId] = game;
   }
@@ -122,10 +123,17 @@ async function handler(req, res) {
     if (game.pairEffect && game.turn !== game.pairEffectOwner) {
       const value = rankValue(cards[0].rank);
       if (game.pairEffect === 'A' && value < 10) return false; // Pocket Aces: Must play 10+
+      if (game.pairEffect === '2') return true; // Pair Pair: No play restriction
       if (game.pairEffect === '3' && value % 2 === 0) return false; // Feeling Off: Must play odd
       if (game.pairEffect === '4' && value >= 8) return false; // Half the Cards: Cannot play 8+
+      if (game.pairEffect === '5') return true; // Medium Rare: No play restriction
+      if (game.pairEffect === '6') return true; // Devilish Stare: No play restriction
+      if (game.pairEffect === '7') return true; // Double Luck: No play restriction
+      if (game.pairEffect === '8') return true; // Good Fortune: No play restriction
+      if (game.pairEffect === '9') return true; // Fort: Handled above
       if (game.pairEffect === '10' && value % 2 !== 0) return false; // Feeling Right: Must play even
       if (game.pairEffect === 'J' && value < 8) return false; // High Card: Must play 8+
+      if (game.pairEffect === 'Q') return true; // Complaint: No play restriction
       if (game.pairEffect === 'K') {
         const lastWasEven = game.moveHistory.length > 0 && rankValue(game.discard.rank) % 2 === 0;
         return lastWasEven ? value % 2 !== 0 : value % 2 === 0; // I am your Father: Alternate even/odd
@@ -136,15 +144,15 @@ async function handler(req, res) {
     if (!top && game.phase === 'play') {
       // Ruler A of Diamonds: Odd non-face cards (A,3,5,7,9) playable anytime (no pairs)
       if (rulerRank === 'A' && rulerSuit === 'Diamonds') {
-        return cards.length === 1 && !['J', 'Q', 'K'].includes(cards[0].rank) && rankValue(cards[0].rank) % 2 !== 0;
+        return cards.every(c => !['J', 'Q', 'K'].includes(c.rank) && rankValue(c.rank) % 2 !== 0);
       }
       // Ruler 3 or 7: Play a 7 or 3 anytime
       if (rulerRank === '3' || rulerRank === '7') {
         return cards.length === 1 && (cards[0].rank === '7' || cards[0].rank === '3');
       }
-      // Ruler 10: Play multiple even cards (no pairs)
+      // Ruler 10: Play two even cards (no pairs)
       if (rulerRank === '10') {
-        return cards.length >= 2 && cards.every(c => isEven(c.rank)) && !isPair;
+        return cards.length === 2 && cards.every(c => isEven(c.rank)) && !isPair && cards.some(c => isValidPlay([c], null));
       }
       // Default: Can play sets of 2-4 cards of the same rank
       return cards.length >= 2 && cards.length <= 4 && cards.every(c => c.rank === cards[0].rank);
@@ -164,39 +172,43 @@ async function handler(req, res) {
         if (rulerRank === 'A' && rulerSuit === 'Diamonds' && !['J', 'Q', 'K'].includes(card.rank) && effectiveValue % 2 !== 0) {
           return true; // Bypasses normal matching
         }
-        // A of Hearts: Hearts are wild (count as every rank)
-        if (rulerRank === 'A' && rulerSuit === 'Hearts' && card.suit === 'Hearts') {
-          return true; // Wild card, matches any top card
+        // A of Hearts: Hearts are wild, other suits count as AH but not wild
+        if (rulerRank === 'A' && rulerSuit === 'Hearts') {
+          if (card.suit === 'Hearts') {
+            return true; // Wild card, matches any top card
+          }
+          // Non-Hearts count as AH but aren't wild
+          effectiveRank = 'A';
+          effectiveSuit = 'Hearts';
+          effectiveValue = 1;
         }
-        // A of Spades: All cards count as both their rank and half rank rounded down
+        // A of Spades: All cards count as both their rank and half rank (ceil(rank/2) - 1)
         if (rulerRank === 'A' && rulerSuit === 'Spades') {
-          const halfValue = Math.floor(effectiveValue / 2);
-          // Check both the original and half value in base matching
-          effectiveValue = [effectiveValue, halfValue]; // Store both values to check
+          const halfValue = Math.ceil(effectiveValue / 2) - 1;
+          effectiveValue = [effectiveValue, halfValue];
+          effectiveRank = [effectiveRank, halfValue.toString()];
         }
-        // A of Clubs: All cards count as half rank rounded down
+        // A of Clubs: No play modification
         if (rulerRank === 'A' && rulerSuit === 'Clubs') {
-          effectiveValue = Math.floor(effectiveValue / 2);
-          effectiveRank = effectiveValue.toString(); // Update rank for matching
+          // No effect on play validity
         }
         // Ruler 5: Face cards (J,Q,K) count as 5
         if (rulerRank === '5' && ['J', 'Q', 'K'].includes(card.rank)) {
           effectiveValue = 5;
           effectiveRank = '5';
         }
-        // Ruler 10: Even cards match even cards (handled in base matching)
         // Ruler J: J/Q/K/A count as each other
         if (rulerRank === 'J' && ['J', 'Q', 'K', 'A'].includes(card.rank)) {
-          effectiveRank = ['J', 'Q', 'K', 'A']; // Can match any of these ranks
+          effectiveRank = ['J', 'Q', 'K', 'A'];
         }
-        // Ruler Q: Kings are wild (count as every rank)
+        // Ruler Q: Kings are wild
         if (rulerRank === 'Q' && card.rank === 'K') {
           return true; // Wild card, matches any top card
         }
         // Suit Hearts: Cards count as both their rank and the ruler's rank
         if (rulerSuit === 'Hearts' && rulerRank !== 'A') {
           const rulerValue = rankValue(rulerRank);
-          effectiveValue = [effectiveValue, rulerValue]; // Can match either value
+          effectiveValue = [effectiveValue, rulerValue];
           effectiveRank = [effectiveRank, rulerRank];
         }
         // Suit Spades: Spades count as both their rank and rank ÷ 2 rounded up - 1
@@ -205,11 +217,10 @@ async function handler(req, res) {
           effectiveValue = [effectiveValue, slicedValue];
           effectiveRank = [effectiveRank, slicedValue.toString()];
         }
-        // Suit Clubs: Play a pair if 5+ cards in hand (handled in pair logic)
-      }
+        // Suit Clubs: Handled below in pair logic
+        // Suit Diamonds: Handled below for Diamond Storm
   
-      // Base Matching: Same rank, same suit, or same even/odd (after ruler abilities)
-      if (top) {
+        // Base Matching: Same rank, same suit, or same even/odd (after ruler abilities)
         const topEffectiveValue = rankValue(top.rank);
   
         // Handle cases where effectiveRank or effectiveValue is an array (multiple possible values)
@@ -229,7 +240,28 @@ async function handler(req, res) {
       return matches;
     }
   
-    // Step 5: Handle pair plays (must match top card individually)
+    // Step 5: Suit Clubs - Play a pair if 5+ cards in hand, both cards must be individually valid
+    if (rulerSuit === 'Clubs' && game.players[game.turn].hand.length >= 5 && cards.length === 2 && cards[0].rank === cards[1].rank) {
+      const validSingle = cards.every(card => {
+        if (!top) {
+          return isValidPlay([card], null);
+        }
+        return isValidPlay([card], top);
+      });
+      return validSingle;
+    }
+  
+    // Step 6: Suit Diamonds - Diamond Storm: Play a diamond card + another card (not a pair)
+    if (rulerSuit === 'Diamonds' && cards.length === 2 && !isPair) {
+      const diamondCard = cards.find(c => c.suit === 'Diamonds');
+      if (diamondCard) {
+        // The diamond card must be a valid play
+        const diamondValid = top ? isValidPlay([diamondCard], top) : isValidPlay([diamondCard], null);
+        return diamondValid;
+      }
+    }
+  
+    // Step 7: Handle pair plays (must match top card individually)
     if (isPair && top) {
       // Both cards must individually be valid plays against the top card
       const validSingle = cards.every(card => isValidPlay([card], top));
@@ -237,19 +269,19 @@ async function handler(req, res) {
       return true;
     }
   
-    // Step 6: Handle three-of-a-kind (ToaK) plays (must match top card individually)
+    // Step 8: Handle three-of-a-kind (ToaK) plays (must match top card individually)
     if (isToaK && top) {
       const validSingle = cards.every(card => isValidPlay([card], top));
       if (!validSingle) return false;
       return true;
     }
   
-    // Step 7: Ruler 10 even stack (multiple even cards on an even top card, no pairs)
-    if (rulerRank === '10' && top && cards.length >= 2 && cards.every(c => isEven(c.rank)) && isEven(top.rank)) {
-      return !isPair; // Must not be a pair
+    // Step 9: Ruler 10 - Play two even cards on an even top card, no pairs
+    if (rulerRank === '10' && top && cards.length === 2 && cards.every(c => isEven(c.rank)) && isEven(top.rank)) {
+      return !isPair && cards.some(card => isValidPlay([card], top));
     }
   
-    // Step 8: Handle sets of 2-4 cards of the same rank
+    // Step 10: Handle sets of 2-4 cards of the same rank
     if (cards.length >= 2 && cards.length <= 4) {
       const allSameRank = cards.every(c => c.rank === cards[0].rank);
       if (!allSameRank) return false;
@@ -260,27 +292,14 @@ async function handler(req, res) {
       return true; // Valid if no top card (already checked in Step 3)
     }
   
-    // Step 9: Handle 5-card plays (straight, flush, all even, or all odd)
-    if (cards.length === 5) {
+    // Step 11: Handle 5-card plays (straight, flush, all even, or all odd)
+    if (cards.length >= 4) {
       const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
-      const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || values.join(',') === '1,10,11,12,13';
-      const isFlush = cards.every(c => c.suit === cards[0].suit);
-      const allEven = cards.every(c => isEven(c.rank));
-      const allOdd = cards.every(c => !isEven(c.rank));
+      const isStraight = (values.every((v, i) => i === 0 || v === values[i - 1] + 1) || values.join(',') === '1,10,11,12,13') && cards.length >= 4;
+      const isFlush = cards.every(c => c.suit === cards[0].suit) && cards.length >= 4;
+      const allEven = cards.every(c => isEven(c.rank)) && cards.length >= 5;
+      const allOdd = cards.every(c => !isEven(c.rank)) && cards.length >= 5;
       if (!(isStraight || isFlush || allEven || allOdd)) return false;
-      // Must match top card if it exists
-      if (top) {
-        return cards.some(card => isValidPlay([card], top));
-      }
-      return true; // Valid if no top card
-    }
-  
-    // Step 10: Handle 6+ card plays (straight or flush)
-    if (cards.length > 5) {
-      const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
-      const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1);
-      const isFlush = cards.every(c => c.suit === cards[0].suit);
-      if (!(isStraight || isFlush)) return false;
       // Must match top card if it exists
       if (top) {
         return cards.some(card => isValidPlay([card], top));
@@ -294,7 +313,7 @@ async function handler(req, res) {
   if (method === 'GET') {
     if (!game.players[0].hand || game.players[0].hand.length === 0) {
       console.log(`Dealing initial hands for ${sessionId}`);
-      game.playerCount = parseInt(query.players) || 2; // Allow dynamic player count
+      game.playerCount = parseInt(query.players) || 2;
       game.players = Array(game.playerCount).fill().map(() => ({ hand: dealHand(8), ruler: null, wins: 0, aceOfClubsUsed: false, kingUsed: false }));
       console.log(`Player hands dealt for ${game.playerCount} players`);
     }
@@ -333,7 +352,8 @@ async function handler(req, res) {
         pair6Target: null,
         pair7Pending: false,
         pair7Choice: null,
-        playerCount: game.playerCount
+        playerCount: game.playerCount,
+        aceOfClubsTriggered: false
       };
     } else if (addCards) {
       const match = addCards.match(/^([A2-9JQK]|10)([DHSC])([A-Z])$/i);
@@ -414,7 +434,7 @@ async function handler(req, res) {
           const swapCard = deckIdx !== -1 ? game.deck[deckIdx] : game.players[game.turn].hand[handIdx];
           if (deckIdx !== -1) game.deck[deckIdx] = game.players[game.turn].hand[handIdx];
           else game.players[game.turn].hand[handIdx] = swapCard;
-          game.deck.push(game.deck.shift()); // Move top card to bottom
+          game.deck.push(game.deck.shift());
           shuffle(game.deck);
           game.moveHistory.unshift(`Player ${String.fromCharCode(65 + game.turn)} swapped with ${pair7Choice} (Pair 7)`);
           game.pair7Pending = false;
@@ -431,6 +451,7 @@ async function handler(req, res) {
       }).filter(c => c);
       const isPair = cards.length === 2 && cards[0].rank === cards[1].rank;
       const isToaK = cards.length === 3 && cards.every(c => c.rank === cards[0].rank);
+      const isFourOfAKind = cards.length === 4 && cards.every(c => c.rank === cards[0].rank);
 
       if (cards.length === 0) {
         game.status = 'Invalid selection!';
@@ -464,29 +485,54 @@ async function handler(req, res) {
           const oldDiscard = game.discard;
           game.discard = cards[0];
           const playerRuler = game.players[game.turn].ruler;
-          const rulerRank = playerRuler ? playerRuler.rank : null;
+          let rulerRank = playerRuler ? playerRuler.rank : null;
           const rulerSuit = playerRuler ? playerRuler.suit : null;
+          // Check for multiple Kings
+          const hasMultipleKings = game.players.filter(p => p.ruler?.rank === 'K').length >= 2;
+          if (rulerRank === 'K' && hasMultipleKings) {
+            rulerRank = null; // Disable Ruler K abilities
+          }
 
           const values = cards.map(c => rankValue(c.rank)).sort((a, b) => a - b);
-          const isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1) || (cards.length === 5 && values.join(',') === '1,10,11,12,13');
-          const isFlush = cards.every(c => c.suit === cards[0].suit);
-          const allEven = cards.every(c => isEven(c.rank));
-          const allOdd = cards.every(c => !isEven(c.rank));
+          const isStraight = (values.every((v, i) => i === 0 || v === values[i - 1] + 1) || (cards.length === 5 && values.join(',') === '1,10,11,12,13')) && cards.length >= 4;
+          const isFlush = cards.every(c => c.suit === cards[0].suit) && cards.length >= 4;
+          const allEven = cards.every(c => isEven(c.rank)) && cards.length >= 5;
+          const allOdd = cards.every(c => !isEven(c.rank)) && cards.length >= 5;
           game.lastPlayType = cards.length === 1 ? 'single' :
                              (isPair ? 'pair' :
                              (isToaK ? 'three of a kind' :
-                             (cards.length === 4 && cards.every(c => c.rank === cards[0].rank) ? 'four of a kind' :
-                             (rulerRank === '10' && allEven ? 'even stack' :
+                             (isFourOfAKind ? 'four of a kind' :
                              (isStraight ? 'straight' :
                              (isFlush ? 'flush' :
-                             (cards.length === 5 && allEven ? 'even only' :
-                             (cards.length === 5 && allOdd ? 'odd only' : 'multi'))))))));
+                             (allEven ? 'even only' :
+                             (allOdd ? 'odd only' : 'multi')))))));
           game.lastPlayCount = cards.length;
 
-          // Ruler Abilities
+          // Ruler Abilities for Single Card Plays
           if (cards.length === 1) {
             const cardRank = cards[0].rank;
-            if ((rulerRank === '6' || (rulerRank === 'K' && game.players[(game.turn + 1) % game.playerCount].ruler?.rank === '6')) && cardRank === '6') {
+            // Ruler 3: Lucky Clover - Play a 7, others draw 2
+            if ((rulerRank === '3' || (rulerRank === 'K' && game.players.some((p, idx) => idx !== game.turn && p.ruler?.rank === '3'))) && cardRank === '7') {
+              getOpponents(game.turn).forEach(opIdx => {
+                const actualDraw = Math.min(2, game.deck.length);
+                if (actualDraw > 0) {
+                  game.players[opIdx].hand.push(...game.deck.splice(0, actualDraw));
+                  game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${actualDraw} (Ruler 3: Lucky Clover)`);
+                }
+              });
+            }
+            // Ruler 7: Lucky Spin - Play a 3, others draw 2
+            if ((rulerRank === '7' || (rulerRank === 'K' && game.players.some((p, idx) => idx !== game.turn && p.ruler?.rank === '7'))) && cardRank === '3') {
+              getOpponents(game.turn).forEach(opIdx => {
+                const actualDraw = Math.min(2, game.deck.length);
+                if (actualDraw > 0) {
+                  game.players[opIdx].hand.push(...game.deck.splice(0, actualDraw));
+                  game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${actualDraw} (Ruler 7: Lucky Spin)`);
+                }
+              });
+            }
+            // Ruler 6: Nightmare - Play a 6, others draw to 7 cards
+            if ((rulerRank === '6' || (rulerRank === 'K' && game.players.some((p, idx) => idx !== game.turn && p.ruler?.rank === '6'))) && cardRank === '6') {
               getOpponents(game.turn).forEach(opIdx => {
                 const drawTo7 = Math.max(0, 7 - game.players[opIdx].hand.length);
                 const actualDraw = Math.min(drawTo7, game.deck.length);
@@ -496,36 +542,59 @@ async function handler(req, res) {
                 }
               });
             }
-            if ((rulerRank === '8' || (rulerRank === 'K' && game.players[(game.turn + 1) % game.playerCount].ruler?.rank === '8')) && cardRank === '8' && getOpponents(game.turn).some(opIdx => game.players[opIdx].hand.length <= 3)) {
+            // Ruler 8: Seeing Red - Play an 8, players with 3 or fewer cards draw 2
+            if ((rulerRank === '8' || (rulerRank === 'K' && game.players.some((p, idx) => idx !== game.turn && p.ruler?.rank === '8'))) && cardRank === '8') {
               getOpponents(game.turn).forEach(opIdx => {
-                const actualDraw = Math.min(2, game.deck.length);
-                if (actualDraw > 0) {
-                  game.players[opIdx].hand.push(...game.deck.splice(0, actualDraw));
-                  game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${actualDraw} (Ruler 8: Seeing Red)`);
+                if (game.players[opIdx].hand.length <= 3) {
+                  const actualDraw = Math.min(2, game.deck.length);
+                  if (actualDraw > 0) {
+                    game.players[opIdx].hand.push(...game.deck.splice(0, actualDraw));
+                    game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${actualDraw} (Ruler 8: Seeing Red)`);
+                  }
                 }
               });
             }
-            if ((rulerRank === '9' || (rulerRank === 'K' && game.players[(game.turn + 1) % game.playerCount].ruler?.rank === '9')) && cardRank === '9' && getOpponents(game.turn).some(opIdx => game.players[opIdx].ruler?.rank === '9')) {
-              while (game.players[game.turn].hand.length > 5 && game.deck.length > 0) {
-                game.deck.push(game.players[game.turn].hand.pop());
-                game.moveHistory.unshift(`Player ${String.fromCharCode(65 + game.turn)} discarded to 5 (Ruler 9: Reverse Nightmare)`);
+            // Ruler Q: Ruler's Touch - Play a K, others draw 1
+            if ((rulerRank === 'Q' || (rulerRank === 'K' && game.players.some((p, idx) => idx !== game.turn && p.ruler?.rank === 'Q'))) && cardRank === 'K') {
+              getOpponents(game.turn).forEach(opIdx => {
+                const actualDraw = Math.min(1, game.deck.length);
+                if (actualDraw > 0) {
+                  game.players[opIdx].hand.push(...game.deck.splice(0, actualDraw));
+                  game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${actualDraw} (Ruler Q: Ruler’s Touch)`);
+                }
+              });
+            }
+          }
+
+          // Handle Ruler 9: Reverse Nightmare (triggered by any player playing a 9)
+          if (cards.length === 1 && cards[0].rank === '9') {
+            game.players.forEach((player, idx) => {
+              if (player.ruler?.rank === '9' && idx !== game.turn) {
+                while (player.hand.length > 5 && game.deck.length > 0) {
+                  game.deck.push(player.hand.pop());
+                  game.moveHistory.unshift(`Player ${String.fromCharCode(65 + idx)} discarded to 5 (Ruler 9: Reverse Nightmare)`);
+                }
               }
-            }
-            if ((rulerRank === '3' || rulerRank === '7' || (rulerRank === 'K' && (game.players[(game.turn + 1) % game.playerCount].ruler?.rank === '3' || game.players[(game.turn + 1) % game.playerCount].ruler?.rank === '7'))) && (cardRank === '7' || cardRank === '3')) {
-              getOpponents(game.turn).forEach(opIdx => {
-                const actualDraw = Math.min(2, game.deck.length);
-                if (actualDraw > 0) {
-                  game.players[opIdx].hand.push(...game.deck.splice(0, actualDraw));
-                  game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${actualDraw} (Ruler ${rulerRank === '3' ? '3' : '7'}: Lucky ${rulerRank === '3' ? 'Clover' : 'Spin'})`);
-                }
-              });
-            }
+            });
           }
 
           // Pair Abilities
           if (isPair) {
             game.pairEffect = cards[0].rank;
             game.pairEffectOwner = game.turn;
+            let pairDrawAmount = 2; // Default for a normal pair
+            if (rulerRank === '2') {
+              pairDrawAmount += 2; // Twice the Might: +2 cards
+              game.moveHistory.unshift(`Ruler 2: Twice the Might (+2 cards)`);
+            }
+            // Apply default pair effect (drawing cards) unless overridden
+            if (!['5', '6', '7', '8', '9'].includes(cards[0].rank)) {
+              getOpponents(game.turn).forEach(opIdx => {
+                const drawCount = Math.min(pairDrawAmount, game.deck.length);
+                game.players[opIdx].hand.push(...game.deck.splice(0, drawCount));
+                game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${drawCount} (Pair${rulerRank === '2' ? ' + Ruler 2' : ''})`);
+              });
+            }
             switch (cards[0].rank) {
               case 'A':
                 game.moveHistory.unshift('Pair A: Opponent must play 10+');
@@ -565,7 +634,7 @@ async function handler(req, res) {
                 game.fortRank = cards[0].rank;
                 game.fortOwner = game.turn;
                 getOpponents(game.turn).forEach(opIdx => {
-                  if (!game.players[opIdx].hand.some(c => isPair || isToaK)) {
+                  if (!game.players[opIdx].hand.some(c => game.players[opIdx].hand.some(c2 => c2.rank === c.rank && c !== c2))) {
                     const drawCount = Math.min(1, game.deck.length);
                     game.players[opIdx].hand.push(...game.deck.splice(0, drawCount));
                     game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${drawCount} (Fort 9)`);
@@ -595,11 +664,16 @@ async function handler(req, res) {
             }
           }
 
-          // ToaK Abilities
+          // Three-of-a-Kind Abilities
           if (isToaK) {
+            getOpponents(game.turn).forEach(opIdx => {
+              const drawCount = Math.min(3, game.deck.length);
+              game.players[opIdx].hand.push(...game.deck.splice(0, drawCount));
+              game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${drawCount} (Three of a Kind)`);
+            });
             if (cards[0].rank === 'A') {
               getOpponents(game.turn).forEach(opIdx => {
-                const aceDraw = Math.min(8, game.deck.length);
+                const aceDraw = Math.min(5, game.deck.length);
                 game.players[opIdx].hand.push(...game.deck.splice(0, aceDraw));
                 game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${aceDraw} (ToaK Aces)`);
               });
@@ -610,6 +684,36 @@ async function handler(req, res) {
               game.fortOwner = game.turn;
               game.moveHistory.unshift(`ToaK ${cards[0].rank}: Fort created`);
             }
+          }
+
+          // Four-of-a-Kind Abilities
+          if (isFourOfAKind) {
+            getOpponents(game.turn).forEach(opIdx => {
+              const drawCount = Math.min(4, game.deck.length);
+              game.players[opIdx].hand.push(...game.deck.splice(0, drawCount));
+              game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${drawCount} (Four of a Kind)`);
+            });
+            if (rulerRank === '4') {
+              // Fourfold: Everyone returns cards to deck, shuffle, others draw 7, player draws 3
+              game.players.forEach((player, idx) => {
+                if (idx !== game.turn) {
+                  game.deck.push(...player.hand);
+                  player.hand = [];
+                }
+              });
+              game.deck.push(...game.players[game.turn].hand);
+              game.players[game.turn].hand = [];
+              shuffle(game.deck);
+              getOpponents(game.turn).forEach(opIdx => {
+                const drawCount = Math.min(7, game.deck.length);
+                game.players[opIdx].hand.push(...game.deck.splice(0, drawCount));
+                game.moveHistory.unshift(`Player ${String.fromCharCode(65 + opIdx)} drew ${drawCount} (Ruler 4: Fourfold)`);
+              });
+              const playerDraw = Math.min(3, game.deck.length);
+              game.players[game.turn].hand.push(...game.deck.splice(0, playerDraw));
+              game.moveHistory.unshift(`Player ${String.fromCharCode(65 + game.turn)} drew ${playerDraw} (Ruler 4: Fourfold)`);
+            }
+            // Additional Four of a Kind effects can be added here
           }
 
           // Fort Logic
@@ -659,7 +763,7 @@ async function handler(req, res) {
           if (game.players[game.turn].hand.length === 0) {
             game.players[game.turn].wins++;
             const winnerRuler = game.players[game.turn].ruler;
-            if (!game.players[game.turn].aceOfClubsUsed && winnerRuler?.rank === 'A' && winnerRuler?.suit === 'Clubs' && game.players.every(p => p.ruler?.rank !== 'A' || p.ruler?.suit !== 'Clubs')) {
+            if (!game.aceOfClubsTriggered && game.players.some((p, idx) => idx !== game.turn && p.ruler?.rank === 'A' && p.ruler?.suit === 'Clubs') && !(winnerRuler?.rank === 'A' && winnerRuler?.suit === 'Clubs')) {
               game.deck.push(...[game.discard, ...game.deck]);
               game.discard = null;
               shuffle(game.deck);
@@ -671,9 +775,9 @@ async function handler(req, res) {
               const winnerDraw = Math.min(5, game.deck.length);
               game.players[game.turn].hand.push(...game.deck.splice(0, winnerDraw));
               game.moveHistory.unshift(`Player ${String.fromCharCode(65 + game.turn)} drew ${winnerDraw} (Ace of Clubs)`);
-              game.players[game.turn].aceOfClubsUsed = true;
+              game.aceOfClubsTriggered = true;
               game.status = `Player ${String.fromCharCode(65 + game.turn)}'s turn: Ace of Clubs reset!`;
-            } else if (!game.players[game.turn].kingUsed && winnerRuler?.rank === 'K') {
+            } else if (!game.players[game.turn].kingUsed && rulerRank === 'K' && !hasMultipleKings) {
               game.players[game.turn].hand.push(...dealHand(5));
               game.players[game.turn].kingUsed = true;
               game.status = `Player ${String.fromCharCode(65 + game.turn)} wins but must win again (Ruler K)!`;
