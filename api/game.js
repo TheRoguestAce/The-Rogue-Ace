@@ -109,12 +109,11 @@ async function handler(req, res) {
     const rulerSuit = playerRuler ? playerRuler.suit : null;
     const isPair = cards.length === 2 && cards[0].rank === cards[1].rank;
     const isToaK = cards.length === 3 && cards.every(c => c.rank === cards[0].rank);
-    const isFoaK = cards.length === 4 && cards.every(c => c.rank === cards[0].rank);
     const topValue = top ? rankValue(top.rank) : 0;
   
     // Step 1: Check fort restrictions (non-owners can only play pairs or better)
     if (game.fortActive && game.turn !== game.fortOwner) {
-      if (!isPair && !isToaK && !isFoak) return false; // Only pairs or ToaK can challenge a fort for non-owners
+      if (!isPair && !isToaK) return false; // Only pairs or ToaK can challenge a fort for non-owners
       const fortValue = rankValue(game.fortRank);
       const playValue = rankValue(cards[0].rank);
       return playValue >= 2 && playValue <= 13; // Ensure the rank is within valid bounds
