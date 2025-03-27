@@ -14,12 +14,12 @@
     <div>Discard: <span id="discard">None</span></div>
     <div>Player A Hand: <span id="player-a-hand"></span></div>
     <div>Player B Hand: <span id="player-b-hand"></span></div>
-    <div>Player A Ruler: <span id="player-a-ruler" onclick="showRulerAbilities('playerA')">None</span></div>
-    <div>Player B Ruler: <span id="player-b-ruler" onclick="showRulerAbilities('playerB')">None</span></div>
+    <div>Player A Ruler: <span id="player-a-ruler" onclick="showRulerAbilities('A')">None</span></div>
+    <div>Player B Ruler: <span id="player-b-ruler" onclick="showRulerAbilities('B')">None</span></div>
     <div>Move History: <span id="move-history">None</span></div>
     <div>Deck Size: <span id="deck-size">?</span></div>
     <div id="fort">Fort: None</div>
-    <div id="ruler-abilities" style="display: none;"></div>
+    <div id="ruler-abilities"></div> <!-- Removed style="display: none;" to show effects by default -->
     <div id="pair5-choice" style="display: none;">
       <input id="pair5-card" type="text" placeholder="e.g., 5H">
       <button id="pair5-submit">Submit Pair 5 Choice</button>
