@@ -3,6 +3,10 @@ const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 let selectedCards = [];
 let sessionId = new URLSearchParams(window.location.search).get('session') || 'default';
 
+function isRed(suit) {
+  return ['Diamonds', 'Hearts'].includes(suit);
+}
+
 function updateGameState() {
   fetch(`/api/game?session=${sessionId}`)
     .then(response => response.json())
@@ -12,6 +16,7 @@ function updateGameState() {
       document.getElementById('status').innerText = data.status;
       document.getElementById('deck-size').innerText = `Deck: ${data.deckSize} cards`;
       document.getElementById('move-history').innerHTML = data.moveHistory.map(move => `<div>${move}</div>`).join('');
+      document.getElementById('turn').innerText = `Turn: Player ${data.turn}`;
 
       const playerAHand = document.getElementById('player-a-hand');
       const playerBHand = document.getElementById('player-b-hand');
@@ -20,7 +25,7 @@ function updateGameState() {
 
       data.playerAHand.forEach(card => {
         const cardDiv = document.createElement('div');
-        cardDiv.className = 'card';
+        cardDiv.className = `card ${isRed(card.suit) ? 'red' : ''}`;
         cardDiv.innerText = `${card.rank}${card.suit[0]}`;
         cardDiv.onclick = () => toggleCardSelection(card, cardDiv, 'A');
         playerAHand.appendChild(cardDiv);
@@ -28,7 +33,7 @@ function updateGameState() {
 
       data.playerBHand.forEach(card => {
         const cardDiv = document.createElement('div');
-        cardDiv.className = 'card';
+        cardDiv.className = `card ${isRed(card.suit) ? 'red' : ''}`;
         cardDiv.innerText = `${card.rank}${card.suit[0]}`;
         cardDiv.onclick = () => toggleCardSelection(card, cardDiv, 'B');
         playerBHand.appendChild(cardDiv);
@@ -36,7 +41,6 @@ function updateGameState() {
 
       document.getElementById('player-a-ruler').innerText = `Ruler: ${data.playerARuler}`;
       document.getElementById('player-b-ruler').innerText = `Ruler: ${data.playerBRuler}`;
-      document.getElementById('turn').innerText = `Turn: Player ${data.turn}`;
       document.getElementById('play-button').disabled = !data.canPlay;
       document.getElementById('draw-button').disabled = data.deckSize === 0;
 
@@ -46,24 +50,11 @@ function updateGameState() {
         document.getElementById('fort').innerText = 'Fort: None';
       }
 
-      if (data.pair5Pending) {
-        document.getElementById('pair5-choice').style.display = 'block';
-      } else {
-        document.getElementById('pair5-choice').style.display = 'none';
-      }
-
-      if (data.pair6Pending) {
-        document.getElementById('pair6-target').style.display = 'block';
-      } else {
-        document.getElementById('pair6-target').style.display = 'none';
-      }
-
-      if (data.pair7Pending) {
-        document.getElementById('pair7-choice').style.display = 'block';
-      } else {
-        document.getElementById('pair7-choice').style.display = 'none';
-      }
-    });
+      document.getElementById('pair5-choice').style.display = data.pair5Pending ? 'block' : 'none';
+      document.getElementById('pair6-target').style.display = data.pair6Pending ? 'block' : 'none';
+      document.getElementById('pair7-choice').style.display = data.pair7Pending ? 'block' : 'none';
+    })
+    .catch(error => console.error('Error fetching game state:', error));
 }
 
 function toggleCardSelection(card, cardDiv, player) {
@@ -106,7 +97,7 @@ function resetGame() {
 }
 
 function addCards() {
-  const cardCode = document.getElementById('card-code').value.toUpperCase();
+  const cardCode = document.getElementById('card-input').value.toUpperCase();
   fetch(`/api/game?session=${sessionId}&addCards=${cardCode}`, { method: 'POST' })
     .then(response => response.json())
     .then(updateGameState);
@@ -136,7 +127,7 @@ function submitPair7Choice() {
 document.getElementById('play-button').onclick = playCards;
 document.getElementById('draw-button').onclick = drawCard;
 document.getElementById('reset-button').onclick = resetGame;
-document.getElementById('add-cards-button').onclick = addCards;
+document.getElementById('add-cards-btn').onclick = addCards;
 document.getElementById('pair5-submit').onclick = submitPair5Choice;
 document.getElementById('pair6-submit').onclick = submitPair6Target;
 document.getElementById('pair7-submit').onclick = submitPair7Choice;
