@@ -1,0 +1,10 @@
+{
+  "name": "rogue-ace",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
