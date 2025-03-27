@@ -32,7 +32,7 @@ button {
   padding: 5px 10px;
 }
 
-#cardInput {
+#card-input {
   padding: 5px;
   width: 150px;
   margin: 5px;
@@ -44,7 +44,7 @@ button {
   background-color: #f0f0f0;
 }
 
-#playerARuler, #playerBRuler {
+#player-a-ruler, #player-b-ruler {
   cursor: pointer;
   text-decoration: underline;
 }
