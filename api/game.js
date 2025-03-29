@@ -104,6 +104,81 @@ async function handler(req, res) {
       return ['Diamonds', 'Hearts'].includes(s);
     }
 
+    function getRulerEffect(ruler) {
+      if (!ruler) return 'No ruler selected.';
+      const rank = ruler.rank;
+      const suit = ruler.suit;
+      let effect = '';
+      if (rank === 'A') {
+        if (suit === 'Diamonds') effect = 'Ace of Diamonds: Play any odd non-face cards anytime.';
+        else if (suit === 'Hearts') effect = 'Ace of Hearts: Hearts are wild; other suits count as AH.';
+        else if (suit === 'Spades') effect = 'Ace of Spades: All cards count as half rank (ceil(rank/2) - 1).';
+        else if (suit === 'Clubs') effect = 'Ace of Clubs: First win resets deck, opponents draw 7, you draw 5 (once).';
+      } else {
+        const suitEffects = {
+          'Diamonds': 'Diamond Storm: Play a diamond card with another non-pair card.',
+          'Hearts': `Campfire: Cards also count as ${rank}.`,
+          'Spades': 'Sliced: Spades count as half rank (ceil(rank/2) - 1).',
+          'Clubs': 'Strike: Play a pair if hand has 5+ cards.'
+        };
+        const rankEffects = {
+          '2': 'Twice the Might: Pairs make opponents draw 2 extra cards.',
+          '3': 'Lucky Clover: Play a 7 anytime, opponents draw 2.',
+          '4': 'Fourfold: Four of a kind resets deck, opponents draw 7, you draw 3.',
+          '5': 'High Five: Face cards count as 5.',
+          '6': 'Nightmare: Play a 6, opponents draw to 7 cards.',
+          '7': 'Lucky Spin: Play a 3 anytime, opponents draw 2.',
+          '8': 'Seeing Red: Play an 8, opponents with ≤3 cards draw 2.',
+          '9': 'Reverse Nightmare: Opponent’s 9 makes you discard to 5.',
+          '10': 'Perfection: Play two even cards on an even card.',
+          'J': 'Servant: J/Q/K/A count as each other.',
+          'Q': 'Ruler’s Touch: Kings are wild, opponents draw 1 when played.',
+          'K': 'Ruler of Rulers: Gains all rank abilities, win twice.'
+        };
+        effect = `${suitEffects[suit]} ${rankEffects[rank]}`;
+        if (game.players.filter(p => p.ruler?.rank === 'K').length >= 2 && rank === 'K') {
+          effect += ' (Disabled due to multiple Kings)';
+        }
+      }
+      return effect;
+    }
+
+    function getPairEffects() {
+      return {
+        'A': 'Pocket Aces: Opponents must play 10+ until your next turn.',
+        '2': 'Pair Pair: Opponents draw 3 cards.',
+        '3': 'Feeling Off: Opponents must play odd numbers until your next turn.',
+        '4': 'Half the Cards: Opponents cannot play 8+ until your next turn.',
+        '5': 'Medium Rare: Swap a card with one from the discard pile.',
+        '6': 'Devilish Stare: Skip an opponent’s next turn.',
+        '7': 'Double Luck: Swap a card with one from the deck.',
+        '8': 'Good Fortune: Play again and set discard.',
+        '9': 'Fort: Opponents must play pairs to destroy or draw 1; you can maintain with pairs.',
+        '10': 'Feeling Right: Opponents must play even numbers until your next turn.',
+        'J': 'High Card: Opponents must play 8+ until your next turn.',
+        'Q': 'Complaint: Opponents draw 1, you return a card to deck.',
+        'K': 'I am your Father: Opponents alternate even/odd until your next turn.'
+      };
+    }
+
+    function getFourOfAKindEffects() {
+      return {
+        'A': 'Pure Destruction: Shuffle 4 cards back into deck.',
+        '2': 'Two’s Domain: Opponents play even suit-matching cards or draw 3.',
+        '3': 'Feeling More Off: Opponents play odd suit-matching cards or draw 3.',
+        '4': 'Four Fours: Opponents draw 5 cards.',
+        '5': 'A Bit Above: Opponents play >5 suit-matching cards or draw 3.',
+        '6': 'Satanic Bomb: Discard all but one card.',
+        '7': 'Crazy Luck: Reset deck, draw 5, set new discard.',
+        '8': 'Crazy Fortune: Reset deck, draw 5, set new discard.',
+        '9': 'Feeling Weird: Opponents play perfect squares (1, 4, 9) or draw 3.',
+        '10': 'Ultimate Perfection: Opponents play perfect squares (1, 4, 9, 10) or draw 3.',
+        'J': 'Master Servant: Opponents play Q or K or draw 3.',
+        'Q': 'Second to One: Opponents play K or you return a card.',
+        'K': 'King of All: Fort only destroyed by ToaK Aces; you return a card each turn.'
+      };
+    }
+
     function isValidPlay(cards, top) {
       if (cards.length === 0) return false;
 
@@ -865,7 +940,17 @@ async function handler(req, res) {
       deckSize: game.deck.length,
       pair5Pending: game.pair5Pending,
       pair6Pending: game.pair6Pending,
-      pair7Pending: game.pair7Pending
+      pair7Pending: game.pair7Pending,
+      rulerEffects: game.players.map(p => getRulerEffect(p.ruler)),
+      pairEffects: getPairEffects(),
+      fourOfAKindEffects: getFourOfAKindEffects(),
+      players: game.players.map(p => ({
+        hand: p.hand,
+        ruler: p.ruler ? { rank: p.ruler.rank, suit: p.ruler.suit } : null,
+        wins: p.wins,
+        aceOfClubsUsed: p.aceOfClubsUsed,
+        kingUsed: p.kingUsed
+      }))
     };
     console.log('Sending response:', JSON.stringify(response));
     res.status(200).json(response);
