@@ -2,7 +2,7 @@ const suits = ['Diamonds', 'Hearts', 'Spades', 'Clubs'];
 const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 let selectedCards = [];
 let sessionId = new URLSearchParams(window.location.search).get('session') || 'default';
-let gameData = null; // Store latest game state
+let gameData = null;
 
 function isRed(suit) {
   return ['Diamonds', 'Hearts'].includes(suit);
@@ -17,7 +17,7 @@ function isEven(rank) {
 }
 
 function updateGameState() {
-  fetch(`/api/game?session=${sessionId}`)
+  return fetch(`/api/game?session=${sessionId}`)
     .then(response => response.json())
     .then(data => {
       gameData = data; // Store game state
@@ -64,9 +64,11 @@ function updateGameState() {
       document.getElementById('pair6-target').style.display = data.pair6Pending ? 'block' : 'none';
       document.getElementById('pair7-choice').style.display = data.pair7Pending ? 'block' : 'none';
 
-      // Reset ruler abilities display if no cards selected or ruler clicked
+      // Clear abilities display if no cards selected
       if (selectedCards.length === 0) {
         document.getElementById('ruler-abilities').innerHTML = '';
+      } else {
+        showCardEffects(); // Update card effects if cards are selected
       }
     })
     .catch(error => console.error('Error fetching game state:', error));
@@ -83,25 +85,35 @@ function toggleCardSelection(card, cardDiv, player) {
     selectedCards.splice(index, 1);
     cardDiv.classList.remove('selected');
   }
-  showCardEffects();
+  updateGameState().then(showCardEffects); // Refresh state and show effects
 }
 
 function showRulerAbilities(player) {
-  if (!gameData) return;
-  const ruler = player === 'A' ? gameData.playerARuler : gameData.playerBRuler;
-  if (ruler === 'None') {
-    document.getElementById('ruler-abilities').innerHTML = 'No ruler selected.';
-    return;
-  }
-  const effect = gameData.rulerEffects[player === 'A' ? 0 : 1];
-  document.getElementById('ruler-abilities').innerHTML = `
-    <h3>Player ${player} Ruler Effects (${ruler}):</h3>
-    <p>${effect}</p>
-  `;
+  updateGameState().then(() => {
+    if (!gameData) {
+      document.getElementById('ruler-abilities').innerHTML = 'Game data not loaded yet.';
+      return;
+    }
+    const rulerIdx = player === 'A' ? 0 : 1;
+    const ruler = gameData.players[rulerIdx].ruler;
+    if (!ruler) {
+      document.getElementById('ruler-abilities').innerHTML = `Player ${player} has no ruler selected.`;
+      return;
+    }
+    const effect = gameData.rulerEffects[rulerIdx];
+    document.getElementById('ruler-abilities').innerHTML = `
+      <h3>Player ${player} Ruler (${ruler.rank}${ruler.suit[0]}):</h3>
+      <p>${effect}</p>
+    `;
+  });
 }
 
 function showCardEffects() {
-  if (!gameData || selectedCards.length === 0) {
+  if (!gameData) {
+    document.getElementById('ruler-abilities').innerHTML = 'Game data not loaded yet.';
+    return;
+  }
+  if (selectedCards.length === 0) {
     document.getElementById('ruler-abilities').innerHTML = '';
     return;
   }
@@ -125,7 +137,7 @@ function showCardEffects() {
   if (isPair) {
     effectText = gameData.pairEffects[cards[0].rank] || 'Opponents draw 2 cards.';
   } else if (isToaK) {
-    effectText = cards[0].rank === 'A' ? 'Opponents draw 8 cards (3 + 5 for ToaK Aces).' : `Opponents draw 3 cards and create a fort (destroy with higher pair).`;
+    effectText = cards[0].rank === 'A' ? 'Opponents draw 8 cards (3 + 5 for ToaK Aces) and destroy King Fort.' : `Opponents draw 3 cards and create a fort (destroy with higher pair).`;
   } else if (isFourOfAKind) {
     effectText = gameData.fourOfAKindEffects[cards[0].rank] || 'Opponents draw 4 cards.';
   } else if (isStraight) {
@@ -157,15 +169,17 @@ function showCardEffects() {
     if (rulerRank === '3' && cardRank === '7') effectText = 'Ruler 3: Lucky Clover - Opponents draw 2 cards.';
     else if (rulerRank === '7' && cardRank === '3') effectText = 'Ruler 7: Lucky Spin - Opponents draw 2 cards.';
     else if (rulerRank === '6' && cardRank === '6') effectText = 'Ruler 6: Nightmare - Opponents draw to 7 cards.';
-    else if (rulerRank === '8' && cardRank === '8') effectText = 'Ruler 8: Seeing Red - Opponents with 3 or fewer cards draw 2.';
+    else if (rulerRank === '8' && cardRank === '8') effectText = 'Ruler 8: Seeing Red - Opponents with ≤3 cards draw 2.';
     else if (rulerRank === 'Q' && cardRank === 'K') effectText = 'Ruler Q: Ruler’s Touch - Opponents draw 1 card.';
     else if (cardRank === '9') effectText = 'Ruler 9 (if opponent has it): Reverse Nightmare - They discard to 5 cards.';
     else effectText = 'Matches discard by rank, suit, or even/odd.';
+  } else {
+    effectText = 'No special effect for this combination.';
   }
 
   document.getElementById('ruler-abilities').innerHTML = `
-    <h3>Selected Cards Effect (${selectedCards.join(', ')}):</h3>
-    <p>${effectText || 'No special effect.'}</p>
+    <h3>Selected Cards (${selectedCards.join(', ')}):</h3>
+    <p>${effectText}</p>
   `;
 }
 
@@ -231,4 +245,5 @@ document.getElementById('pair5-submit').onclick = submitPair5Choice;
 document.getElementById('pair6-submit').onclick = submitPair6Target;
 document.getElementById('pair7-submit').onclick = submitPair7Choice;
 
+// Initial game state load
 updateGameState();
