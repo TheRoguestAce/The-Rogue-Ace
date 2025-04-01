@@ -15,7 +15,7 @@ function App() {
 
   const fetchGameState = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/game?session=${sessionId}`);
+      const response = await fetch(`/api/game?session=${sessionId}`);
       const data = await response.json();
       setGameData(data);
       setSelectedCards(prev => prev.filter(card => 
@@ -93,7 +93,7 @@ function App() {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:3001/game?session=${sessionId}`, {
+      const response = await fetch(`/api/game?session=${sessionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ move: selectedCards })
@@ -112,7 +112,7 @@ function App() {
   };
 
   const drawCard = async () => {
-    await fetch(`http://localhost:3001/game?session=${sessionId}`, {
+    await fetch(`/api/game?session=${sessionId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ move: 'draw' })
@@ -121,7 +121,7 @@ function App() {
   };
 
   const resetGame = async () => {
-    await fetch(`http://localhost:3001/game?session=${sessionId}&reset=true`, { method: 'POST' });
+    await fetch(`/api/game?session=${sessionId}&reset=true`, { method: 'POST' });
     await fetchGameState();
   };
 
