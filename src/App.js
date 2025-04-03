@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const suits = ['D', 'H', 'S', 'C']; // Diamonds, Hearts, Spades, Clubs
+const suits = ['D', 'H', 'S', 'C'];
 const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
 function App() {
@@ -21,6 +21,7 @@ function App() {
       setSelectedCards(prev => prev.filter(card => 
         data.players[data.currentPlayer].hand.includes(card)
       ));
+      if (!selectedCards.length) setEffectsDisplay(''); // Clear effects if no cards selected
     } catch (error) {
       console.error('Error fetching game state:', error);
     }
@@ -35,7 +36,11 @@ function App() {
       const newSelection = prev.includes(card)
         ? prev.filter(c => c !== card)
         : [...prev, card];
-      showCardEffects(newSelection);
+      if (newSelection.length > 0) {
+        showCardEffects(newSelection); // Show effects immediately on selection
+      } else {
+        setEffectsDisplay(''); // Clear if nothing selected
+      }
       return newSelection;
     });
   };
@@ -52,10 +57,11 @@ function App() {
       '3': 'Three: Play a 7 anytime, opponents draw 2.',
       'K': 'King: Win twice to end game.'
     };
-    setEffectsDisplay(`Player ${playerIdx + 1} Ruler (${ruler}): ${effects[ruler.slice(0, -1)] || 'No special effect.'}`);
+    const rulerRank = ruler.slice(0, -1);
+    setEffectsDisplay(`Player ${playerIdx + 1} Ruler (${ruler}): ${effects[rulerRank] || 'No special effect.'}`);
   };
 
-  const showCardEffects = (cardsToCheck = selectedCards) => {
+  const showCardEffects = (cardsToCheck) => {
     if (!cardsToCheck.length) {
       setEffectsDisplay('');
       return;
@@ -102,6 +108,11 @@ function App() {
       if (data.error) {
         alert(data.error);
       } else {
+        const effectText = effectsDisplay.split(': ')[1] || 'Played cards.';
+        setGameData(prev => ({
+          ...prev,
+          moveHistory: [`Player ${prev.turn + 1} played ${selectedCards.join(', ')}: ${effectText}`, ...(prev.moveHistory || [])].slice(0, 5)
+        }));
         setSelectedCards([]);
         setEffectsDisplay('');
         await fetchGameState();
@@ -122,6 +133,8 @@ function App() {
 
   const resetGame = async () => {
     await fetch(`/api/game?session=${sessionId}&reset=true`, { method: 'POST' });
+    setSelectedCards([]);
+    setEffectsDisplay('');
     await fetchGameState();
   };
 
@@ -149,12 +162,15 @@ function App() {
             </div>
           </div>
           <div>Player {idx + 1} Ruler: 
-            <span onClick={() => showRulerAbilities(idx)}>{player.ruler || 'None'}</span>
+            <span className="ruler" onClick={() => showRulerAbilities(idx)}>{player.ruler || 'None'}</span>
           </div>
         </div>
       ))}
       <div>Deck Size: <span>{gameData.deck.length}</span></div>
       <div className="effects">{effectsDisplay}</div>
+      <div>Move History:
+        <div className="history">{(gameData.moveHistory || []).map((move, idx) => <div key={idx}>{move}</div>)}</div>
+      </div>
       <div className="controls">
         <button onClick={drawCard} disabled={!gameData.deck.length}>Draw</button>
         <button onClick={playCards} disabled={!selectedCards.length || !gameData.canPlay}>Play</button>
