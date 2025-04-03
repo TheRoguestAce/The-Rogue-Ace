@@ -21,7 +21,7 @@ function App() {
       setSelectedCards(prev => prev.filter(card => 
         data.players[data.currentPlayer].hand.includes(card)
       ));
-      if (!selectedCards.length) setEffectsDisplay(''); // Clear effects if no cards selected
+      if (!selectedCards.length) setEffectsDisplay('');
     } catch (error) {
       console.error('Error fetching game state:', error);
     }
@@ -36,10 +36,11 @@ function App() {
       const newSelection = prev.includes(card)
         ? prev.filter(c => c !== card)
         : [...prev, card];
+      console.log('Selected cards:', newSelection); // Debug
       if (newSelection.length > 0) {
-        showCardEffects(newSelection); // Show effects immediately on selection
+        showCardEffects(newSelection);
       } else {
-        setEffectsDisplay(''); // Clear if nothing selected
+        setEffectsDisplay('');
       }
       return newSelection;
     });
@@ -47,6 +48,7 @@ function App() {
 
   const showRulerAbilities = (playerIdx) => {
     const ruler = gameData.players[playerIdx].ruler;
+    console.log('Ruler clicked:', ruler, 'for Player', playerIdx + 1); // Debug
     if (!ruler) {
       setEffectsDisplay(`Player ${playerIdx + 1} has no ruler selected.`);
       return;
@@ -75,7 +77,8 @@ function App() {
       const pairEffects = {
         '2': 'Opponents draw 3 cards.',
         '3': 'Opponents must play odd cards next turn.',
-        '7': 'Swap a card with the deck.',
+        '5': `Swap a card with the discard pile (${gameData.discard || 'None'}).`,
+        '7': `Swap a card with the deck (top: ${gameData.deck[0] || 'None'}).`,
         'K': 'Opponents alternate even/odd next turn.'
       };
       effectText = pairEffects[ranks[0]] || 'Opponents draw 2 cards.';
@@ -90,6 +93,7 @@ function App() {
     } else {
       effectText = 'No special effect for this combination.';
     }
+    console.log('Setting effect:', effectText); // Debug
     setEffectsDisplay(`Selected Cards (${cardsToCheck.join(', ')}): ${effectText}`);
   };
 
