@@ -24,11 +24,11 @@ function isValidPlay(cards, discard, ruler) {
 
   if (cards.length === 1) {
     const cardRank = ranks[0];
-    if (rulerRank === '3' && cardRank === '7') return true; // Ruler 3 special case
-    if (!discard) return true; // First play
-    return cardRank === discard.slice(0, -1); // Must match discard rank
+    if (rulerRank === '3' && cardRank === '7') return true;
+    if (!discard) return true;
+    return cardRank === discard.slice(0, -1);
   }
-  if (isPair || isToaK) return true; // Pairs and ToaK are always valid
+  if (isPair || isToaK) return true;
   return false;
 }
 
