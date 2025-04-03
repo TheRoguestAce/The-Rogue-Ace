@@ -27,11 +27,22 @@
   border-color: #00ff00;
 }
 
+.ruler {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .effects {
   margin: 10px 0;
   padding: 10px;
   border: 1px solid #ccc;
   background-color: #f9f9f9;
+}
+
+.history {
+  margin-top: 5px;
+  font-size: 0.9em;
+  color: #555;
 }
 
 .controls {
