@@ -1,6 +1,7 @@
+// Ruler abilities
 const showRulerAbilities = (playerIdx) => {
   const ruler = gameData.players[playerIdx].ruler;
-  console.log('Ruler clicked:', ruler, 'for Player', playerIdx + 1);
+  console.log('Ruler clicked:', ruler, 'for Player', playerIdx + 1); // Debug
   if (!ruler) {
     setEffectsDisplay(`Player ${playerIdx + 1} has no ruler selected.`);
     return;
@@ -15,6 +16,7 @@ const showRulerAbilities = (playerIdx) => {
   setEffectsDisplay(`Player ${playerIdx + 1} Ruler (${ruler}): ${effects[rulerRank] || 'No special effect.'}`);
 };
 
+// Card effects with pair 5/7
 const showCardEffects = (cardsToCheck) => {
   if (!cardsToCheck.length) {
     setEffectsDisplay('');
@@ -45,6 +47,19 @@ const showCardEffects = (cardsToCheck) => {
   } else {
     effectText = 'No special effect for this combination.';
   }
-  console.log('Setting effect:', effectText);
+  console.log('Setting effect:', effectText); // Debug
   setEffectsDisplay(`Selected Cards (${cardsToCheck.join(', ')}): ${effectText}`);
 };
+
+// Render fixes for Turn/Discard
+if (!gameData) return <div>Loading...</div>;
+
+return (
+  <div className="game">
+    <h1>The Rogue Ace</h1>
+    <div>Status: <span>{gameData.status}</span></div>
+    <div>Turn: <span>Player {gameData.turn + 1}</span></div>
+    <div>Discard: <span>{gameData.discard || 'None'}</span></div>
+    {/* Rest of the render */}
+  </div>
+);
