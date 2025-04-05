@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './App.css'; // Assuming this exists
 
 const suits = ['D', 'H', 'S', 'C'];
 const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -142,7 +143,6 @@ function App() {
     await fetchGameState();
   };
 
-  // Render block starts here, no stray returns
   if (!gameData) return <div>Loading...</div>;
 
   return (
